@@ -1,0 +1,60 @@
+# Application deepening mode
+
+## Outcome and boundaries
+
+Implement an optional two-step application form for jobs whose employer enables deepening. Step 1 contains the existing application fields. Step 2 asks one question per approved job aspect, at most three. The candidate submits **one application only after the final send action**. The submitted answer, CV, aspects, questions, answers and refusals are immutable snapshots. Deepening does not change recruiting stages, Scenario Match Scores or ranking.
+
+This is an AIPH3 teaching prototype using synthetic data. Person selection is a role simulation, not authentication or confidentiality. Candidate and employer views should be scoped to the selected persona, but the browser-local scenario and full-scenario export remain readable by someone with access to that browser. Do not describe view rules as real access control. Public service handling of real candidate data needs a separate authentication, authorization, privacy and hosting design.
+
+The current app is a static Vite/React hash-route client with version-1 browser-local state and no backend. Add a **local companion server** for OpenAI calls. Preserve the npm ci / npm run dev participant startup path and document optional environment setup. The client never contains an API key. A static build without the companion server remains usable for ordinary application flows; AI generation shows a recoverable unavailable state. Do not bundle future case evidence or instructor materials in participant packages.
+
+## 1. Employer configuration
+
+- After a **new** job is successfully published, show its employer a “Tryb pogłębienia” dialog once for that publication action. The job remains published if the employer chooses “Pomiń”, closes the dialog or generation fails. Do not open the dialog for field changes, draft saves or every edit of an existing job. Provide a configuration entry from the employer job view for later changes.
+- Send the saved, approved public job content to the local server for up to three OpenAI aspect suggestions. Do not send the private source brief. Each suggestion has a short title, explanation and exact supporting excerpt from the saved job. Validate before display. An invalid or failed response leaves manual entry available.
+- The employer can accept, edit, delete, add and reorder aspects. An enabled configuration has **one to three** approved aspects. Every approved aspect, including a manual one, must cite a concrete excerpt of the saved job. Block a fourth active aspect with a clear explanation. A suggestion is a proposal until employer approval.
+- Store each approved aspect's stable ID, final wording, order, supporting excerpt and final author (AI or employer). Editing AI wording makes the employer the final author; the original suggestion may be retained separately as provenance. Store enabled/disabled state with the job. “Włącz pogłębienie” requires valid aspects; “Pomiń” leaves the mode disabled.
+- Later configuration changes affect future forms only. Existing submitted applications retain their snapshots. Disabling the mode never rewrites them.
+
+## 2. Candidate form and submission
+
+- A job with deepening disabled retains the current one-step form. A job with deepening enabled shows “1. Zgłoszenie” and “2. Pogłębienie”. Step 1 retains the existing answer, CV attachment, validation, consent and explicit draft save. Moving to step 2 is **not** “Wyślij aplikację” and creates no application record.
+- On a valid transition to step 2, capture the current job/aspect revision for this form and generate exactly one question per approved aspect in that revision. Use the approved aspect, its job excerpt, the current step-1 answer and safe professional facts extracted from the synthetic CV. A later job edit must not silently change an open form. Ask for the candidate's own contribution, decision, work scope, result or constraint when missing. If the answer already covers an aspect concretely, invite optional expansion rather than repetition.
+- Step 2 exists only in the current page session. Remove any persisted step-1 draft when entering it. Refreshing, closing or leaving the page before final send discards **the entire unfinished form**: draft, generated questions and decisions. There is no “Dokończę później” action or resume route. Tell the candidate before entering step 2 that progress will be lost on exit or refresh. Do not rely on a browser close handler for cleanup; arrange storage so nothing survives that transition.
+- Within the same uninterrupted session, the candidate can go back from step 2 to step 1 and edit the unsent data. After a change, moving forward preserves questions and decisions for aspects already answered or explicitly declined and regenerates only questions for undecided aspects. The candidate may also request regeneration of an undecided question. Never replace a question with a saved answer or refusal. Apply valid replacements atomically; failure preserves the previous questions and decisions. No aspect gets more than one current question.
+- At each question the candidate can answer or choose “Nie chcę odpowiadać”. A refusal belongs to that question. Answers and refusals can be changed while the form is unsent. Enable final “Wyślij aplikację” only when every generated question has an answer or refusal and step-1 validation and consent still hold. Submission creates **one** application with snapshots of final step-1 data, CV, job/aspect version, questions, answers, refusals and order. Preserve the one-application-per-candidate/job rule, including withdrawn applications.
+- If initial question generation fails or times out, show “Spróbuj ponownie” and “Wyślij bez pogłębienia”. The latter submits validated step-1 data as one application and records a generation-failure skip. Missing server or API key follows this path. Retry creates neither an application nor duplicate questions. If later regeneration of an undecided question fails, retain the previous question so the candidate can still answer or decline it.
+- After final send, show “Aplikacja wysłana” and use the existing success/list navigation pattern. There is no post-submission answer, edit or return to deepening.
+
+## 3. Submitted application views
+
+- The candidate's list/detail shows completed deepening or a generation-failure skip. It offers no resume or edit action.
+- The employer detail keeps the original answer/CV and adds a separate “Pogłębienie” section. Show each aspect, question and candidate answer or explicit refusal. For a generation-failure skip, show that state instead of fabricated questions. Distinguish AI-generated questions from candidate-authored answers. The employer can inspect but not edit candidate questions or decisions.
+- Recruiting stages remain independent of deepening. No question or answer changes the fixed Scenario Match Score, summary or ordering.
+
+## 4. OpenAI, privacy and state
+
+- Read OPENAI_API_KEY only on the local server from the environment. Provide a sample variable name and setup instruction without a value or secret in the repository. Keep request/response bodies, candidate free text and secrets out of logs. Use bounded timeouts and recoverable error states. The server does not store applications; the browser commits validated results to local scenario state.
+- Use structured model responses and server-side schema validation. Suggestions have at most three aspects and valid excerpts. Question responses contain exactly one question for each requested aspect ID, with no unknown or duplicate IDs. Validate IDs and lengths, reject malformed output and never render raw model output as trusted markup. Retry must not duplicate applications, aspects or questions.
+- Send only material needed for a specific generation. CV and step-1 answer are free text, even in this synthetic prototype. Automatically prepare a professional-facts-only CV excerpt through a restrictive allowlist and remove identifying, contact and photo information before transmission. If the CV cannot be safely prepared, omit it. Apply fail-closed filtering to the step-1 answer; if a safe answer input cannot be prepared, make no model request and offer retry or submission without deepening. Do not use an OpenAI call to redact raw CV or answer text, since that would transmit the unfiltered material. Automatic filtering cannot guarantee anonymization of arbitrary real data; the contract remains synthetic-only. Never transmit candidate name, contact details, profile, raw CV/PDF, employer notes or legacy candidate notes/generated text.
+- Extend the shared plain Zod/domain schema and browser-local persistence for job configuration and submitted application snapshots. Use a versioned migration so version-1 local saves and imports remain usable. Old jobs default to deepening disabled; old applications retain immutable snapshots without invented questions. Preserve validated import/export/reset, referential integrity, size limits and the one-application constraint. Submitted applications must not depend on later edits to jobs or profiles.
+- Bind the local server to loopback for development and do not imply that a public deployment has secure access control. Preserve the static participant build. Document that OpenAI generation requires a reachable server and server-side key.
+
+## 5. UI and verification
+
+For new or changed screens, follow GUI.md, docs/design-system/README.md, its agent kit, IMPLEMENTATION.md and VERIFICATION.md. Keep the Poster People direction, existing Base UI primitives, React render composition API, hash routes, Polish end-user copy, keyboard behavior, desktop/mobile layout and long-content/error states. Do not import the kit's example controllers, fixtures, body reset or string renderer into product code.
+
+Acceptance scenarios to implement and verify in browser tests:
+
+1. Publish a new job, edit an AI suggestion, add/reorder a manual aspect, enable the mode and reject a fourth active aspect. Every saved aspect cites an excerpt and its final author is correct.
+2. Skip or disable the mode and submit through the existing one-step form.
+3. Enter step 2 from valid step 1; verify no application exists yet. Answer one question, decline another, return to step 1, edit the answer and move forward. Only undecided questions change; decided questions and decisions remain.
+4. Close or refresh during step 2. No application, step-1 draft, question or decision can be resumed; the candidate starts a fresh form.
+5. Answer or decline every question, send once, reload and inspect candidate/employer views. Submitted data is immutable and no edit/resume action exists.
+6. Let step 1 already cover an aspect and verify the question invites optional expansion rather than repetition.
+7. Fail or time out OpenAI generation, retry and choose “Wyślij bez pogłębienia”. Verify one application, a visible skip reason and no invented questions. Repeat with a missing key/server.
+8. Edit or disable aspects after submission. Its snapshot remains unchanged; future forms use the latest configuration.
+9. Migrate a version-1 save/import and round-trip the new format through export/import/reset. Old applications and legacy metadata survive without fabricated deepening data.
+10. Check desktop/mobile, keyboard focus and validation, long text, unavailable storage, sanitized outbound payloads and the participant package boundary. Run ./scripts/verify and record what actually passed, then perform a separate review. Update FEATURES.md in the implementation change with stable IDs, behavior/data boundaries and source/test references.
+
+At delivery, report changed files, startup and environment setup, actual verification results, remaining limits and the fact that local checks do not prove CI, publishing, privacy for real data or human course approval.

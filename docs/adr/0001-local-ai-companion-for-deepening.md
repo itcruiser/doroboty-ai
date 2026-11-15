@@ -1,0 +1,3 @@
+# Local AI companion for application deepening
+
+The teaching prototype has a static browser-local state model, but the agreed deepening flow requires OpenAI while keeping the API key out of the client. We will add a loopback-only companion server for generation and validation while the browser continues to own synthetic scenario records. This preserves the static participant build and the existing role simulation, at the cost of AI generation being unavailable without a running local server and server-side key; a public service with real candidate data would require a separate access-control and privacy design.
