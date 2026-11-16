@@ -27,6 +27,7 @@ export function ApplicationOfferPreview({
       <p className="application-location">
         <MapPin size={16} aria-hidden="true" />
         {job.locations.join(" / ")}
+        {compact && ` · ${remoteLabels[job.remoteStatus]}`}
       </p>
       <div className="application-pay">
         <SalaryFact job={job} />

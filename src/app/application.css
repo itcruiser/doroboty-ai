@@ -295,7 +295,7 @@
 .application-actions .application-send {
   min-width: 161px;
 }
-.application-actions .application-send:disabled {
+.application-actions .application-send[data-submitted]:disabled {
   background: var(--gui-color-1);
   color: var(--gui-text);
 }
@@ -425,5 +425,37 @@
   }
   .application-focused-layout {
     gap: 20px;
+  }
+}
+
+@media (min-width: 601px) {
+  .application-offer-compact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    column-gap: 24px;
+  }
+  .application-offer-compact > .application-help {
+    grid-column: 1 / -1;
+  }
+  .application-offer-compact .application-company {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .application-offer-compact h2 {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .application-offer-compact .application-location {
+    grid-column: 1;
+    grid-row: 4;
+  }
+  .application-offer-compact .application-pay {
+    grid-column: 2;
+    grid-row: 2 / 5;
+    align-self: center;
+    margin: 0;
+  }
+  .application-offer-compact .application-description {
+    grid-column: 1 / -1;
   }
 }

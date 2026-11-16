@@ -64,6 +64,7 @@ export function CandidateQuestions({
             <label className="field">
               <span>Twoja odpowiedź</span>
               <Textarea
+                aria-label="Twoja odpowiedź"
                 value={response.answer}
                 maxLength={12000}
                 disabled={locked || pending || response.refused}

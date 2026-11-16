@@ -71,10 +71,19 @@ export function useCandidateDeepening() {
   ) {
     if (request.current) return;
     if (!current.current) {
-      // Durable deletion must succeed before capturing the session or sending a request.
+      let revision: DeepeningRevision;
+      try {
+        revision = structuredClone(captureDeepeningRevision(job));
+      } catch {
+        setError(
+          "Nie można przygotować pogłębienia tej oferty. Wróć do oferty i sprawdź jej konfigurację.",
+        );
+        return;
+      }
+      // Validate first; durable deletion must then succeed before entering or requesting.
       if (!removeDraft()) return;
       update({
-        revision: structuredClone(captureDeepeningRevision(job)),
+        revision,
         identity: structuredClone(identity),
         responses: [],
         generatedFrom: "",

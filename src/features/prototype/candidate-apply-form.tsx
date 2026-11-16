@@ -24,6 +24,15 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
   const { notes, generated } = legacy.current;
   const deepening = useCandidateDeepening();
   const enabled = !!job.deepening?.enabled || !!deepening.session;
+  const identity = deepening.session?.identity ?? { name: person.name, cv: person.cv };
+  const offer = deepening.session
+    ? {
+        ...job,
+        title: deepening.session.revision.title,
+        summary: deepening.session.revision.summary,
+        description: deepening.session.revision.description,
+      }
+    : job;
   const [answer, setAnswer] = useState(draft?.answer ?? "");
   const [consent, setConsent] = useState(false);
   const [message, setMessage] = useState("");
@@ -120,7 +129,7 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
         <p>Sprawdź ofertę i opowiedz, dlaczego pasujesz do tej roli.</p>
       </header>
       <div className="application-layout application-focused-layout">
-        <ApplicationOfferPreview job={job} compact />
+        <ApplicationOfferPreview job={offer} compact />
         {enabled && (
           <div className="application-step-context">
             <ol aria-label="Etapy aplikacji" className="application-steps">
@@ -139,6 +148,11 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
           className="record-sheet application-form"
           aria-labelledby="application-form-title"
         >
+          {!deepening.active && deepening.error && (
+            <p role="alert" className="error-message">
+              {deepening.error}
+            </p>
+          )}
           {deepening.active ? (
             <CandidateQuestions deepening={deepening} answer={answer} locked={submitted} />
           ) : (
@@ -146,7 +160,7 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
               <header className="application-form-intro">
                 <h2 id="application-form-title">Twoja aplikacja</h2>
                 <p>
-                  Aplikujesz jako <strong>{person.name}</strong>.
+                  Aplikujesz jako <strong>{identity.name}</strong>.
                 </p>
               </header>
               <section className="application-form-section" aria-labelledby="application-cv-title">
@@ -154,7 +168,7 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
                 <p className="application-help">Do aplikacji dołączymy CV z Twojego profilu.</p>
                 <CvAttachment
                   candidateId={person.id}
-                  fallbackText={person.cv}
+                  fallbackText={identity.cv}
                   layout="row"
                   contextLabel="CV z Twojego profilu"
                 />
@@ -219,9 +233,15 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
                 ref={sendButton}
                 type="submit"
                 disabled={
-                  submitted || deepening.pending || (deepening.active && !deepening.complete)
+                  submitted ||
+                  deepening.pending ||
+                  (deepening.active &&
+                    (!deepening.complete ||
+                      !consent ||
+                      answerLength < MIN_APPLICATION_ANSWER_LENGTH))
                 }
                 className="application-send"
+                data-submitted={submitted || undefined}
               >
                 {submitted && <CheckCircle2 aria-hidden="true" />}
                 {submitted
