@@ -7,7 +7,7 @@ const answer =
   "Prowadziłam badania z użytkownikami i wdrożyłam automatyzację. Czas obsługi skrócił się o 30%.";
 const aspectTitles = ["Badania z użytkownikami", "Współpraca z inżynierami", "Efekty wdrożenia"];
 
-async function seed(page: Page, draft = false) {
+async function seed(page: Page, draft = false, longContent = false) {
   const state = initialState();
   state.activePersonId = "candidate-anna";
   const job = state.jobs.find((item) => item.slug === "ai-product-manager")!;
@@ -29,6 +29,16 @@ async function seed(page: Page, draft = false) {
       })),
     },
   });
+  if (longContent) {
+    job.title =
+      "Starsza menedżerka produktu AI odpowiedzialna za badania, automatyzację i współpracę zespołów przy złożonych wdrożeniach";
+    delete job.salaryMin;
+    delete job.salaryMax;
+    const company = state.companies.find((item) => item.id === job.companyId)!;
+    company.name = "Pracownia Produktów i Automatyzacji";
+    company.slug = "synthetic-long";
+    delete company.logoUrl;
+  }
   if (draft)
     state.drafts.push({
       candidateId: "candidate-anna",
@@ -47,7 +57,7 @@ async function seed(page: Page, draft = false) {
   return job;
 }
 
-async function questions(page: Page) {
+async function questions(page: Page, longContent = false) {
   const requests: { aspectIds: string[]; revision: { jobRevision: number } }[] = [];
   await page.route("**/api/deepening/questions", async (route) => {
     const body = route.request().postDataJSON();
@@ -57,9 +67,14 @@ async function questions(page: Page) {
         questions: body.aspectIds.map((aspectId: string) => ({
           aspectId,
           question:
-            aspectId === "aspect-0"
+            (aspectId === "aspect-0"
               ? "Jeśli chcesz rozwinąć opis badań, jaką decyzję podjęłaś samodzielnie?"
-              : `Pytanie ${requests.length}: jaki był Twój wkład w ${aspectId}?`,
+              : `Pytanie ${requests.length}: jaki był Twój wkład w ${aspectId}?`) +
+            (longContent
+              ? " Opisz zakres własnej odpowiedzialności, ograniczenia projektu oraz sposób sprawdzenia rezultatów wspólnie z zespołem.".repeat(
+                  9,
+                )
+              : ""),
         })),
       },
     });
@@ -280,9 +295,16 @@ for (const width of [1280, 390, 320]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
-    await questions(page);
-    await seed(page);
+    await questions(page, true);
+    await seed(page, false, true);
+    await expect(page.getByText("Nie podano wynagrodzenia", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-company-logo="synthetic-long"]')).toContainText("PP");
+    await page.screenshot({
+      path: `artifacts/deepening/candidate-form-${width}.png`,
+      fullPage: true,
+    });
     await enter(page);
+    await expect(aspect(page, 0)).toContainText("ograniczenia projektu");
     await aspect(page, 0).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).focus();
     await page.keyboard.press("Space");
     await expect(
@@ -291,8 +313,17 @@ for (const width of [1280, 390, 320]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+    for (const element of await page
+      .locator(".application-page h2, .deepening-question-copy, .deepening-question textarea")
+      .all()) {
+      const box = await element.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    }
     const result = await new AxeBuilder({ page }).include(".application-page").analyze();
     expect(result.violations).toEqual([]);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `artifacts/deepening/candidate-${width}.png`, fullPage: true });
   });
 }

@@ -1,6 +1,6 @@
 # Design-system integration status
 
-This is a receiving-application snapshot as of November 2, 2026. The immutable reference remains Poster People v1.0.0 (67 files). User-requested host implementation/documentation does not imply a new source-kit release, publishing or approval of every application screen.
+This is a receiving-application snapshot with a deepening host update on November 16, 2026. The immutable reference remains Poster People v1.0.0 (67 files). User-requested host implementation/documentation does not imply a new source-kit release, publishing or approval of every application screen.
 
 Engineering task paths below refer to the full development repository and are deliberately not distributed in participant packages. All current component contracts and open findings are self-contained in this directory; task history and ignored screenshots are optional supporting evidence.
 
@@ -20,6 +20,10 @@ Engineering task paths below refer to the full development repository and are de
 Read the current [host catalog](HOST-COMPONENTS.md), [record APIs](RECORDS.md) and [acceptance checklist](VERIFICATION.md) before extending these patterns. Historical tasks describe their own state at the time; the current component contracts supersede earlier permanent-CV-row or always-pink-score choices.
 
 Candidate submitted detail now also uses the shared ApplicationRecord composition, with owner-filtered stage/date history, CV-only snapshot preview and focused two-step withdrawal. Repository-only execution evidence: `docs/tasks/candidate-submitted-record-redesign.md`. This does not resolve the company-page audit below.
+
+## Deepening host update
+
+The selected option 2 adds a complete staged employer editor and optional aspect dialog, a focused candidate writing sheet with compact offer context above, session-only questions and read-only submitted snapshots. Contracts are in HOST-COMPONENTS.md, IMPLEMENTATION.md, RECORDS.md and VERIFICATION.md; actual checks are recorded in `docs/tasks/deepening-implementation.md`. The source kit stays immutable. This scope does not close the unrelated company-page findings below.
 
 ## Open company-page findings
 

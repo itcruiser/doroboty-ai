@@ -42,7 +42,7 @@ Owner: src/components/process-timeline.tsx; styles: src/app/records.css.
 
 [CandidateApplication](../../src/features/prototype/candidate-application.tsx) projects each event to stage/date before passing history. It never supplies employer notes, source notes or generated drafts to reading panels or timeline. Its footer owns two-step withdrawal; confirm/cancel focus and surviving status focus follow the action. Terminal states omit actions. [RecruitingApplication](../../src/features/prototype/recruiting-application.tsx) supplies authorized employer history and owns its note editor and existing stage operations. Shared layout/snapshots must not be copied into another role-specific page.
 
-Both roles use H3 answer/CV headings, CV-only local preview/actions and complete custom-text fallback. The candidate view retains immutable submitted material even if the current profile changes. Candidate ownership checks and the user's existing local application IDs/data remain unchanged.
+Both roles use H3 answer/CV headings, CV-only local preview/actions and complete custom-text fallback. The optional `application.deepening` snapshot renders in a separate named Pogłębienie region after the original materials: ordered approved aspect, explicitly AI-generated question and candidate answer/refusal. A generation-failure skip has a visible explanation and no fabricated questions. Both roles inspect the same immutable snapshot without fields, edit/resume controls or stage/score changes. The candidate view retains immutable submitted material even if the current profile changes. Candidate ownership checks and the user's existing local application IDs/data remain unchanged.
 
 ## Employer composition and states
 

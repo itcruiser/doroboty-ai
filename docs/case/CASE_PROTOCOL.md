@@ -14,7 +14,7 @@ The primary historical outcome is employer continuation after the first conversa
 
 - Interactive records and historical evidence are separate. Reset/import does not rewrite the baseline packet.
 - The baseline packet contains 120 historical synthetic journeys with stable IDs/timestamps, plus stage-safe funnel/outcome columns.
-- Candidates edit application answers directly. Legacy source notes/generated copy remain distinct from approved answers in version-1 saves/imports, hidden in the form and preserved on draft save/submission. New candidate drafts use empty legacy fields. Submitted CV and identity are snapshots.
+- Candidates edit application answers directly. Legacy source notes/generated copy remain distinct from approved answers through version-1 migration and version-2 saves/imports, hidden in the form and preserved on draft save/submission. New candidate drafts use empty legacy fields. Submitted CV and identity are snapshots. Optional deepening additionally snapshots approved aspects, job version, AI questions, candidate answers/refusals or an explicit generation-failure skip. Entering step 2 deletes the persisted draft; no unfinished form survives refresh/exit. Questions do not change fixed scores or recruiting stages.
 - Scenario Match Scores are fixed persona examples, not new assessments or historical text-similarity scores. Do not combine them into one trend.
 - No real CVs or personal data. Role selection does not enforce confidentiality.
 

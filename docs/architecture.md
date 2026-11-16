@@ -1,12 +1,14 @@
 # Architecture
 
-One React/TypeScript application is built by Vite into static files. HashRouter renders routes under /#/; route parameters created in the browser require no hosting rewrites. The running app currently uses local CSS tokens, Timeless font and Base UI primitives. New and changed UI must follow the accepted Poster People [design system](design-system/README.md), adapted into the existing stack; installing its reference did not convert runtime styles. The browser remains the scenario data owner. An optional loopback companion generates deepening proposals/questions without storing application data.
+One React/TypeScript application is built by Vite into static files. HashRouter renders routes under /#/; route parameters created in the browser require no hosting rewrites. The running app currently uses Poster People host tokens, bundled Geist Serif 400 headings, Arial body and Base UI primitives. New and changed UI must follow the accepted Poster People [design system](design-system/README.md), adapted into the existing stack; installing its reference did not convert runtime styles. The browser remains the scenario data owner. An optional loopback companion generates deepening proposals/questions without storing application data.
 
 ## Data flow
 
 JSON marketplace/person fixtures → initialState → PrototypeProvider → feature views. Local operations go through transition with shared Zod schemas and explicit role/ownership/transition checks for coherent simulation. All roles still have access to the same browser data; these checks are not security.
 
 Candidate source notes, generated draft and approved application are distinct fields. Submission snapshots CV, candidate name, job title, scenario score and summary. Employer stage events are appended, with private-in-the-UI notes. Profile/job edits do not rewrite submitted records.
+
+Storage uses version 2 under the existing localStorage key, explicitly migrating version-1 jobs to disabled deepening and preserving old application/legacy fields. Validated configuration revisions and completed/skip snapshots are shared plain Zod schemas. Entering deepening captures job/aspect/identity/CV, durably removes any saved draft before HTTP, and retains all unfinished form data in memory only. Back/edit preserves decided questions; replacements for undecided questions apply atomically. Final send alone commits one application, independent of later job/profile edits.
 
 Storage uses one versioned localStorage key. Import validates schema/version, unique IDs, cross-references and stage history before replacing state. Unreadable/incompatible saves are protected against automatic overwrite; settings can download the original raw save, import a valid file or explicitly reset. Failed/quota-limited persistence leaves the in-memory app usable and offers export. Import/export is capped at 2 MB; no binary CV storage.
 

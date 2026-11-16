@@ -14,14 +14,14 @@ A participant can start with Node.js 24 and npm, extend the prototype and test a
 - Use prepared personas instead of real accounts. Candidate and employer views share one browser-local scenario.
 - Provide reset, validated import/export and recovery guidance.
 - Retain jobs, filters/list/map, companies, profiles, sample CVs, saved jobs, application drafts/submission and recruiting decisions.
-- Candidates write their application answers directly; there is no candidate notes editor or AI proposal flow. Legacy candidate notes/generated text remain separate from approved answers in version-1 saves and imports, and are preserved when saving or submitting a resumed draft.
+- Candidates write their application answers directly; there is no candidate notes editor or AI proposal flow. Legacy candidate notes/generated text remain separate from approved answers across version-1 migration and version-2 saves/imports, and are preserved when saving or submitting a resumed draft. Optional employer-approved deepening adds up to three AI questions, with candidate answers/refusals and immutable submitted snapshots; it never writes the candidate’s answer. Entering step 2 removes the saved draft and keeps the entire unfinished form in memory only.
 - Preserve employer source briefs separately from approved descriptions. UX demonstrations are not evidence of model quality or hiring probability.
 - Keep submitted applications/CVs immutable while profiles and jobs evolve.
 - Keep historical teaching evidence separate from locally created prototype records. The shipped stage is baseline only.
 
 ## Boundaries
 
-A shareable static build contains no secrets and provides no confidentiality between roles. Hosting is optional and provider-independent.
+A shareable static build contains no secrets and provides no confidentiality between roles. Hosting is optional and provider-independent. An optional loopback companion performs structured OpenAI generation with a server-only key; the browser retains scenario ownership. Ordinary static flows remain usable without it, with manual employer entry and candidate failure-skip recovery. Positive allowlist preparation is conservative and does not establish privacy for real data.
 
 ## Learning
 
