@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { initialState } from "./model";
+import { initialState, transition } from "./model";
 import {
   MAX_IMPORT_BYTES,
+  enterDeepeningState,
   parseState,
   readState,
   saveState,
@@ -25,8 +26,35 @@ describe("browser persistence and recovery", () => {
     expect(readState(storage).state).toEqual(s);
     expect(parseState(serializeState(s))).toEqual(s);
   });
+  it("migrates version-1 jobs and preserves applications and legacy draft metadata", () => {
+    const legacy = JSON.parse(serializeState(initialState()));
+    legacy.version = 1;
+    for (const job of legacy.jobs) {
+      delete job.revision;
+      delete job.deepening;
+    }
+    legacy.drafts = [
+      {
+        candidateId: "candidate-anna",
+        jobId: legacy.jobs[0].id,
+        notes: "Original source",
+        generated: "Unapproved proposal",
+        answer: "Edited answer",
+      },
+    ];
+    const migrated = parseState(JSON.stringify(legacy));
+    expect(migrated.version).toBe(2);
+    expect(migrated.jobs[0]).toMatchObject({
+      revision: 1,
+      deepening: { enabled: false, revision: 0, aspects: [] },
+    });
+    expect(migrated.applications).toEqual(legacy.applications);
+    expect(migrated.applications[0].deepening).toBeUndefined();
+    expect(migrated.drafts).toEqual(legacy.drafts);
+    expect(parseState(serializeState(migrated))).toEqual(migrated);
+  });
   it("protects incompatible/corrupt original saves", () => {
-    for (const raw of ["{", JSON.stringify({ ...initialState(), version: 2 })]) {
+    for (const raw of ["{", JSON.stringify({ ...initialState(), version: 3 })]) {
       const storage = memory(raw);
       const loaded = readState(storage);
       expect(loaded.blocked).toBe(true);
@@ -67,5 +95,59 @@ describe("browser persistence and recovery", () => {
     for (const theme of ["dark", "system", "light"]) {
       expect(parseState(JSON.stringify({ ...state, theme }))).toEqual(state);
     }
+  });
+});
+
+function draftState() {
+  const state = transition(initialState(), { type: "select_person", id: "candidate-anna" });
+  return transition(state, {
+    type: "draft",
+    jobId: state.jobs[0].id,
+    notes: "Legacy source",
+    generated: "Legacy proposal",
+    answer: "Persisted answer",
+  });
+}
+describe("durable entry into session-only deepening", () => {
+  it("removes the saved draft before returning a state eligible for step two", () => {
+    const state = draftState();
+    const storage = memory(serializeState(state));
+    const { state: next } = enterDeepeningState(storage, state, state.jobs[0].id);
+    expect(next.drafts).toEqual([]);
+    expect(readState(storage).state.drafts).toEqual([]);
+    expect(readState(storage).state.applications).toEqual(state.applications);
+  });
+  it("blocks entry when deletion fails or original data is unreadable", () => {
+    const state = draftState();
+    const raw = serializeState(state);
+    const storage = {
+      getItem: () => raw,
+      setItem: () => {
+        throw new Error("Quota exceeded");
+      },
+    };
+    expect(() => enterDeepeningState(storage, state, state.jobs[0].id)).toThrow("Wyeksportuj");
+    expect(readState(storage).state.drafts[0].answer).toBe("Persisted answer");
+    expect(state.drafts[0].answer).toBe("Persisted answer");
+    const unreadable = memory("{");
+    expect(() => enterDeepeningState(unreadable, state, state.jobs[0].id)).toThrow("ustawieniach");
+    expect(unreadable.getItem(STORAGE_KEY)).toBe("{");
+    expect(() => enterDeepeningState(memory(), state, state.jobs[0].id, { blocked: true })).toThrow(
+      "nieczytelnego",
+    );
+    expect(() =>
+      enterDeepeningState(null, state, state.jobs[0].id, { persistedDraft: true }),
+    ).toThrow("szkicu");
+  });
+  it("allows memory-only drafts when no persisted draft can survive the session", () => {
+    const state = draftState();
+    expect(enterDeepeningState(null, state, state.jobs[0].id).state.drafts).toEqual([]);
+    const noWriteStorage = {
+      getItem: () => serializeState(initialState()),
+      setItem: () => {
+        throw new Error("Storage unavailable");
+      },
+    };
+    expect(enterDeepeningState(noWriteStorage, state, state.jobs[0].id).state.drafts).toEqual([]);
   });
 });
