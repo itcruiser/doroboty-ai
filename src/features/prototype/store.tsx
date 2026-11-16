@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { initialState, transition, type Action, type State } from "./model";
-import { parseState, readState, saveState, type StoragePort } from "./storage";
+import { parseState, readState, saveState, enterDeepeningState, type StoragePort } from "./storage";
 function browserStorage(): StoragePort | null {
   try {
     return window.localStorage;
@@ -15,6 +15,7 @@ function useStore() {
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(loaded.blocked);
   const latest = useRef(state);
+  const persistedDrafts = useRef(loaded.issue ? [] : loaded.state.drafts);
   function commit(next: State, replace = false) {
     latest.current = next;
     setState(next);
@@ -22,6 +23,7 @@ function useStore() {
     if (blocked && !replace) return;
     try {
       saveState(browserStorage(), next);
+      persistedDrafts.current = next.drafts;
       setIssue("");
       if (replace) setBlocked(false);
     } catch (e) {
@@ -38,6 +40,31 @@ function useStore() {
           ? e.message
           : "Sprawdź poprawność i długość wprowadzonych danych.",
       );
+      return false;
+    }
+  }
+  function enterDeepening(jobId: string) {
+    try {
+      const result = enterDeepeningState(browserStorage(), latest.current, jobId, {
+        blocked,
+        persistedDraft: persistedDrafts.current.some(
+          (draft) => draft.candidateId === latest.current.activePersonId && draft.jobId === jobId,
+        ),
+      });
+      latest.current = result.state;
+      setState(result.state);
+      setError("");
+      if (result.persisted) {
+        persistedDrafts.current = result.state.drafts;
+        setIssue("");
+      } else
+        persistedDrafts.current = persistedDrafts.current.filter(
+          (draft) =>
+            !(draft.candidateId === latest.current.activePersonId && draft.jobId === jobId),
+        );
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nie udało się usunąć zapisanego szkicu.");
       return false;
     }
   }
@@ -61,6 +88,7 @@ function useStore() {
     blocked,
     original: loaded.original,
     run,
+    enterDeepening,
     importState,
     clearError: () => setError(""),
     reset: () => commit(initialState(), true),

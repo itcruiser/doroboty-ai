@@ -1,3 +1,4 @@
+import { captureDeepeningRevision } from "@/features/deepening/schema";
 import { describe, expect, it } from "vitest";
 import { initialState, transition, stateSchema, type State } from "./model";
 const time = "2026-11-03T10:00:00.000Z";
@@ -206,5 +207,191 @@ describe("approved deepening configuration", () => {
         job: { ...job, summary: "Removed all cited context" },
       }).jobs[0].deepening.enabled,
     ).toBe(false);
+  });
+});
+
+function enabledState() {
+  const state = as(initialState(), "employer-brightlabs");
+  const job = state.jobs[0];
+  return transition(state, {
+    type: "configure_deepening",
+    jobId: job.id,
+    configuration: {
+      enabled: true,
+      revision: 0,
+      aspects: [
+        {
+          id: "aspect-one",
+          title: "Ownership",
+          explanation: "Describe your contribution",
+          excerpt: job.summary,
+          author: "employer",
+          order: 0,
+        },
+      ],
+    },
+  });
+}
+const submission = {
+  type: "submit" as const,
+  notes: "Legacy notes",
+  generated: "Legacy output",
+  answer: "I owned delivery and reduced response time by 25%.",
+  consent: true,
+};
+describe("final deepening submission", () => {
+  it("prevents bypassing enabled deepening before a final decision or explicit failure skip", () => {
+    const state = as(enabledState(), "candidate-anna");
+    expect(() => transition(state, { ...submission, jobId: state.jobs[0].id })).toThrow(
+      "pogłębienia",
+    );
+    expect(state.applications).toHaveLength(1);
+  });
+  it("submits a captured older revision and identity once after configuration and profile changes", () => {
+    let state = enabledState();
+    const revision = captureDeepeningRevision(state.jobs[0]);
+    const jobId = state.jobs[0].id;
+    const identity = state.people.find((person) => person.id === "candidate-anna")!;
+    state = transition(state, {
+      type: "configure_deepening",
+      jobId,
+      configuration: { enabled: false, revision: 1, aspects: [] },
+    });
+    state = transition(state, { type: "publish", job: { ...state.jobs[0], title: "Later title" } });
+    state = as(state, "candidate-anna");
+    state = transition(state, {
+      type: "profile",
+      value: {
+        name: "Changed name",
+        headline: "Updated headline",
+        bio: "Updated",
+        location: "Kraków",
+      },
+    });
+    state = transition(state, {
+      type: "draft",
+      jobId,
+      notes: "Legacy notes",
+      generated: "Legacy output",
+      answer: "Original draft",
+    });
+    const deepening = {
+      status: "completed" as const,
+      revision,
+      responses: [
+        {
+          aspectId: "aspect-one",
+          question: "What did you contribute?",
+          answer: "",
+          refused: true,
+          order: 0,
+        },
+      ],
+    };
+    const result = transition(
+      state,
+      {
+        ...submission,
+        jobId,
+        deepening,
+        submissionIdentity: { name: identity.name, cv: identity.cv },
+      },
+      time,
+      "deepened-application",
+    );
+    const application = result.applications.at(-1)!;
+    expect(application).toMatchObject({
+      jobTitle: "AI Product Manager",
+      candidateName: "Anna Kowalska",
+      cv: identity.cv,
+      deepening,
+      sourceNotes: "Legacy notes",
+      generatedAnswer: "Legacy output",
+      score: 84,
+      stage: "submitted",
+    });
+    expect(result.drafts).toHaveLength(0);
+    expect(result.applications).toHaveLength(2);
+    expect(() => transition(result, { ...submission, jobId, deepening })).toThrow("już wysłana");
+    revision.title = "Mutated caller";
+    expect(application.deepening?.revision.title).toBe("AI Product Manager");
+  });
+
+  it("rejects cross-job, future and undecided snapshots through submit and state import", () => {
+    const state = as(enabledState(), "candidate-anna");
+    const revision = captureDeepeningRevision(state.jobs[0]);
+    const deepening = {
+      status: "completed" as const,
+      revision,
+      responses: [
+        {
+          aspectId: "aspect-one",
+          question: "What did you contribute?",
+          answer: "Delivery",
+          refused: false,
+          order: 0,
+        },
+      ],
+    };
+    for (const invalid of [
+      { ...deepening, revision: { ...revision, jobId: state.jobs[1].id } },
+      { ...deepening, revision: { ...revision, jobRevision: 2 } },
+      { ...deepening, revision: { ...revision, aspectRevision: 2 } },
+      { ...deepening, responses: [{ ...deepening.responses[0], answer: "" }] },
+      { ...deepening, responses: [{ ...deepening.responses[0], aspectId: "unknown" }] },
+    ]) {
+      expect(() =>
+        transition(state, { ...submission, jobId: state.jobs[0].id, deepening: invalid }),
+      ).toThrow();
+      const valid = transition(state, { ...submission, jobId: state.jobs[0].id, deepening });
+      valid.applications.at(-1)!.deepening = invalid;
+      expect(stateSchema.safeParse(valid).success).toBe(false);
+    }
+    const skipped = transition(state, {
+      ...submission,
+      jobId: state.jobs[0].id,
+      deepening: { status: "skipped", reason: "generation_failed", revision },
+    });
+    expect(skipped.applications.at(-1)?.deepening).toEqual({
+      status: "skipped",
+      reason: "generation_failed",
+      revision,
+    });
+    expect(skipped.applications.at(-1)?.score).toBe(84);
+  });
+});
+
+describe("session-only deepening entry", () => {
+  it("drops only the selected candidate/job draft without creating an application", () => {
+    let state = as(initialState(), "candidate-marek");
+    const jobId = state.jobs[1].id;
+    state = transition(state, {
+      type: "draft",
+      jobId,
+      notes: "Marek notes",
+      generated: "",
+      answer: "Marek draft",
+    });
+    state = as(state, "candidate-anna");
+    state = transition(state, {
+      type: "draft",
+      jobId,
+      notes: "Anna notes",
+      generated: "",
+      answer: "Anna draft",
+    });
+    state = transition(state, {
+      type: "draft",
+      jobId: state.jobs[2].id,
+      notes: "Other job",
+      generated: "",
+      answer: "Other draft",
+    });
+    const result = transition(state, { type: "drop_draft", jobId });
+    expect(result.drafts.map((draft) => draft.answer)).toEqual(["Marek draft", "Other draft"]);
+    expect(result.applications).toEqual(state.applications);
+    expect(() =>
+      transition(as(state, "employer-brightlabs"), { type: "drop_draft", jobId }),
+    ).toThrow("kandydata");
   });
 });
