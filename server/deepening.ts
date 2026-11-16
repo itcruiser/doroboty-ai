@@ -16,8 +16,10 @@ import { professionalFacts } from "../src/features/deepening/privacy.ts";
 
 type Options = { apiKey?: string; model?: string; fetch?: typeof fetch; timeoutMs?: number };
 class BoundaryError extends Error {
-  constructor(readonly status: number) {
+  readonly status: number;
+  constructor(status: number) {
     super("Generation unavailable");
+    this.status = status;
   }
 }
 const allowedOrigins = new Set(["http://127.0.0.1:3001", "http://localhost:3001"]);
@@ -65,7 +67,7 @@ const envelopeSchema = z.object({
 });
 async function generate(options: Options, kind: "aspects" | "questions", input: unknown) {
   if (!options.apiKey?.trim()) throw new BoundaryError(503);
-  const model = options.model ?? "gpt-4o-mini";
+  const model = options.model ?? "gpt-5.4-mini";
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,100}$/u.test(model)) throw new BoundaryError(503);
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;

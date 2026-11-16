@@ -39,7 +39,7 @@ test("question generation sends only canonical professional facts before the HTT
     revision,
     aspectIds: ["research"],
     answer:
-      "Anna Prywatna, anna@example.test. Prowadziłam badania z użytkownikami i wdrożyłam automatyzację. Czas obsługi skrócił się o 30%.",
+      "Prowadziłam badania z użytkownikami i wdrożyłam automatyzację. Czas obsługi skrócił się o 30%.",
     cv: "Anna Prywatna — Product Manager\nTelefon 500600700\nProwadziłam badania z użytkownikami.",
   });
   expect(result.questions).toHaveLength(1);
@@ -53,6 +53,8 @@ test("question generation sends only canonical professional facts before the HTT
 
 for (const answer of [
   "React, badania, automatyzacja",
+  "Anna Prywatna, anna@example.test. Prowadziłam badania z użytkownikami.",
+  "Prowadziłam badania z użytkownikami. To kłamstwo.",
   "Nie prowadziłam badań z użytkownikami.",
   "Nie wiem. Prowadziłam badania z użytkownikami.",
   "Chyba prowadziłam badania z użytkownikami.",
@@ -101,4 +103,64 @@ test("client rejects malformed aspect ordering before HTTP", async () => {
     }),
   ).rejects.toThrow();
   expect(fetcher).not.toHaveBeenCalled();
+});
+
+test("client sends a recognized CV only as finite professional fact IDs", async () => {
+  let body: unknown;
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    body = JSON.parse(String(init.body));
+    return Response.json({ questions: [{ aspectId: "research", question: "Jaki był wkład?" }] });
+  });
+  await generateQuestions({
+    revision,
+    aspectIds: ["research"],
+    answer: "Prowadziłam badania z użytkownikami.",
+    cv: "Wdrożyłam automatyzację.",
+  });
+  expect(body).toEqual({
+    revision,
+    aspectIds: ["research"],
+    answerFacts: ["user_research"],
+    cvFacts: ["automation_delivery"],
+  });
+});
+
+test("client validates supporting excerpts and drops nonpublic job metadata", async () => {
+  const { suggestAspects } = await import("./client");
+  let body: unknown;
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    body = JSON.parse(String(init.body));
+    return Response.json({
+      aspects: [{ title: "Badania", explanation: "Wkład", excerpt: "not in public content" }],
+    });
+  });
+  const job = {
+    title: revision.title,
+    summary: revision.summary,
+    description: revision.description,
+    sourceBrief: "private source",
+    employerNotes: "private notes",
+  };
+  await expect(suggestAspects(job)).rejects.toThrow(/Nie udało/);
+  expect(body).toEqual({
+    title: revision.title,
+    summary: revision.summary,
+    description: revision.description,
+  });
+});
+
+test("client refuses an oversized HTTP response", async () => {
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      new Response("x".repeat(70_000), { headers: { "Content-Type": "application/json" } }),
+  );
+  await expect(
+    generateQuestions({
+      revision,
+      aspectIds: ["research"],
+      answer: "Prowadziłam badania z użytkownikami.",
+      cv: "",
+    }),
+  ).rejects.toThrow(/Nie udało/);
 });
