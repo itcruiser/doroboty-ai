@@ -32,12 +32,21 @@ describe("browser persistence and recovery", () => {
       delete job.revision;
       delete job.deepening;
     }
-    legacy.drafts = [{ candidateId: "candidate-anna", jobId: legacy.jobs[0].id,
-      notes: "Original source", generated: "Unapproved proposal", answer: "Edited answer" }];
+    legacy.drafts = [
+      {
+        candidateId: "candidate-anna",
+        jobId: legacy.jobs[0].id,
+        notes: "Original source",
+        generated: "Unapproved proposal",
+        answer: "Edited answer",
+      },
+    ];
     const migrated = parseState(JSON.stringify(legacy));
     expect(migrated.version).toBe(2);
-    expect(migrated.jobs[0]).toMatchObject({ revision: 1,
-      deepening: { enabled: false, revision: 0, aspects: [] } });
+    expect(migrated.jobs[0]).toMatchObject({
+      revision: 1,
+      deepening: { enabled: false, revision: 0, aspects: [] },
+    });
     expect(migrated.applications).toEqual(legacy.applications);
     expect(migrated.applications[0].deepening).toBeUndefined();
     expect(migrated.drafts).toEqual(legacy.drafts);
