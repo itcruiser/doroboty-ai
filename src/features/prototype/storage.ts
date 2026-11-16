@@ -35,6 +35,23 @@ export function parseState(raw: string): State {
 export function serializeState(state: State) {
   return JSON.stringify(state, null, 2);
 }
+/** Old version-2 aspect fields are discarded by the shared object schemas. */
+function hasRetiredAspectFields(raw: string): boolean {
+  const input = JSON.parse(raw) as {
+    jobs: Array<{ deepening?: { aspects?: unknown } }>;
+    applications: Array<{ deepening?: { revision?: { aspects?: unknown } } }>;
+  };
+  return [
+    ...input.jobs.map((job) => job.deepening?.aspects),
+    ...input.applications.map((application) => application.deepening?.revision?.aspects),
+  ].some(
+    (aspects) =>
+      Array.isArray(aspects) &&
+      aspects.some(
+        (aspect) => aspect && typeof aspect === "object" && Object.hasOwn(aspect, "excerpt"),
+      ),
+  );
+}
 export function readState(storage: StoragePort | null) {
   if (!storage)
     return {
@@ -47,12 +64,16 @@ export function readState(storage: StoragePort | null) {
   let raw: string | null = null;
   try {
     raw = storage.getItem(STORAGE_KEY);
-    return {
-      state: raw ? parseState(raw) : initialState(),
-      issue: "",
-      blocked: false,
-      original: null,
-    };
+    const state = raw ? parseState(raw) : initialState();
+    let issue = "";
+    if (raw && hasRetiredAspectFields(raw)) {
+      try {
+        saveState(storage, state);
+      } catch (error) {
+        issue = (error as Error).message;
+      }
+    }
+    return { state, issue, blocked: false, original: null };
   } catch {
     return {
       state: initialState(),

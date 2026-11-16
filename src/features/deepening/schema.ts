@@ -7,23 +7,10 @@ const safeId = z
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/);
 const publicText = z.string().trim().min(1).max(12000);
 
-export function hasSupportingExcerpts(
-  job: { title: string; summary: string; description: string },
-  aspects: ReadonlyArray<{ excerpt: string }>,
-): boolean {
-  const publicContent = [job.title, job.summary, job.description].join("\n\n");
-  return aspects.every((aspect) => publicContent.includes(aspect.excerpt));
-}
-
 export const aspectSchema = z.object({
   id: safeId,
   title: z.string().trim().min(1).max(120),
   explanation: z.string().trim().min(1).max(1000),
-  excerpt: z
-    .string()
-    .min(1)
-    .max(12000)
-    .refine((value) => value.trim().length > 0),
   author: z.enum(["ai", "employer"]),
   order: z.number().int().nonnegative(),
 });
@@ -50,24 +37,15 @@ export const configurationSchema = z
     path: ["revision"],
     message: "Enabled deepening requires a positive configuration revision",
   });
-export const revisionSchema = z
-  .object({
-    jobId: safeId,
-    jobRevision: z.number().int().positive(),
-    aspectRevision: z.number().int().positive(),
-    title: z.string().trim().min(1).max(200),
-    summary: publicText,
-    description: publicText,
-    aspects: aspectsSchema.refine((aspects) => aspects.length > 0),
-  })
-  .superRefine((revision, ctx) => {
-    if (!hasSupportingExcerpts(revision, revision.aspects))
-      ctx.addIssue({
-        code: "custom",
-        path: ["aspects"],
-        message: "Each aspect must cite saved public content",
-      });
-  });
+export const revisionSchema = z.object({
+  jobId: safeId,
+  jobRevision: z.number().int().positive(),
+  aspectRevision: z.number().int().positive(),
+  title: z.string().trim().min(1).max(200),
+  summary: publicText,
+  description: publicText,
+  aspects: aspectsSchema.refine((aspects) => aspects.length > 0),
+});
 
 export type ApprovedAspect = z.infer<typeof aspectSchema>;
 export type DeepeningConfiguration = z.infer<typeof configurationSchema>;

@@ -15,7 +15,7 @@ const revision: DeepeningRevision = {
       id: "research",
       title: "Badania",
       explanation: "Opisz wkład",
-      excerpt: "Badania z użytkownikami",
+
       author: "employer",
       order: 0,
     },
@@ -126,7 +126,7 @@ test("client sends a recognized CV only as finite professional fact IDs", async 
   });
 });
 
-test("client validates supporting excerpts and drops nonpublic job metadata", async () => {
+test("client rejects retired suggestion fields and drops nonpublic job metadata", async () => {
   const { suggestAspects } = await import("./client");
   let body: unknown;
   vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
@@ -148,6 +148,13 @@ test("client validates supporting excerpts and drops nonpublic job metadata", as
     summary: revision.summary,
     description: revision.description,
   });
+});
+
+test("client accepts title and explanation without an offer excerpt", async () => {
+  const { suggestAspects } = await import("./client");
+  const suggestion = { aspects: [{ title: "Badania", explanation: "Opisz własny wkład." }] };
+  vi.stubGlobal("fetch", async () => Response.json(suggestion));
+  await expect(suggestAspects(revision)).resolves.toEqual(suggestion);
 });
 
 test("client refuses an oversized HTTP response", async () => {

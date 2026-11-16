@@ -118,19 +118,9 @@
   font-weight: 400;
   line-height: 1.2;
 }
-.employer-deepening-summary p,
-.employer-deepening-summary blockquote {
+.employer-deepening-summary p {
   line-height: 1.7;
   white-space: pre-wrap;
-}
-.employer-deepening-citation {
-  display: grid;
-  gap: 8px;
-}
-.employer-deepening-citation blockquote {
-  margin: 0;
-  padding-left: 16px;
-  border-left: 2px solid var(--gui-edge);
 }
 .employer-editor-actions,
 .employer-inline-actions {
@@ -175,10 +165,6 @@
   font-size: 24px;
   font-weight: 400;
 }
-.employer-proposals blockquote {
-  border-left: 2px solid var(--gui-edge);
-  padding-left: 14px;
-}
 .employer-aspect {
   display: grid;
   min-width: 0;
@@ -192,19 +178,6 @@
 }
 .employer-aspect textarea {
   min-height: 90px;
-}
-.employer-public-source {
-  border-block: 1px solid var(--gui-edge);
-  padding-block: 20px;
-  overflow-wrap: anywhere;
-}
-.employer-public-source summary {
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-.employer-public-source[open] > * + * {
-  margin-top: 18px;
 }
 .employer-editor button {
   white-space: normal;

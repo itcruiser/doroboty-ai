@@ -153,7 +153,7 @@ describe("approved deepening configuration", () => {
           id: "aspect-one",
           title: "Ownership",
           explanation: "Describe your contribution",
-          excerpt: job.summary,
+
           author: "employer" as const,
           order: 0,
         },
@@ -179,7 +179,7 @@ describe("approved deepening configuration", () => {
         jobId: job.id,
         configuration: {
           ...configuration,
-          aspects: [{ ...configuration.aspects[0], excerpt: "Not in the job" }],
+          aspects: [{ ...configuration.aspects[0], title: "" }],
         },
       }),
     ).toThrow();
@@ -189,12 +189,12 @@ describe("approved deepening configuration", () => {
     });
     expect(republished.jobs[0].revision).toBe(2);
     expect(republished.jobs[0].deepening).toEqual(configured.jobs[0].deepening);
-    expect(() =>
+    expect(
       transition(configured, {
         type: "publish",
-        job: { ...configured.jobs[0], summary: "Removed all cited context" },
-      }),
-    ).toThrow("pogłębienia");
+        job: { ...configured.jobs[0], summary: "Updated public summary" },
+      }).jobs[0].deepening,
+    ).toEqual(configured.jobs[0].deepening);
     const disabled = transition(configured, {
       type: "configure_deepening",
       jobId: job.id,
@@ -204,7 +204,7 @@ describe("approved deepening configuration", () => {
     expect(
       transition(disabled, {
         type: "publish",
-        job: { ...disabled.jobs[0], summary: "Removed all cited context" },
+        job: { ...disabled.jobs[0], summary: "Updated public summary" },
       }).jobs[0].deepening.enabled,
     ).toBe(false);
   });
@@ -226,7 +226,7 @@ it("publishes edited public text and approved aspects atomically with domain-own
           id: "inline-aspect",
           title: "Research",
           explanation: "Describe your contribution",
-          excerpt: newDescription,
+
           author: "employer" as const,
           order: 0,
         },
@@ -261,7 +261,7 @@ it("publishes edited public text and approved aspects atomically with domain-own
         ...edited,
         deepening: {
           ...edited.deepening,
-          aspects: [{ ...edited.deepening.aspects[0], excerpt: "Missing citation" }],
+          aspects: [{ ...edited.deepening.aspects[0], explanation: "" }],
         },
       },
     }),
@@ -286,7 +286,7 @@ function enabledState() {
           id: "aspect-one",
           title: "Ownership",
           explanation: "Describe your contribution",
-          excerpt: job.summary,
+
           author: "employer",
           order: 0,
         },

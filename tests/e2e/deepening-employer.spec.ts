@@ -89,7 +89,7 @@ test("deepening is the fourth inline step and publication without it preserves a
   });
 });
 
-test("approved AI and manual aspects keep author, excerpt and order through later configuration and ordinary edits", async ({
+test("approved AI and manual aspects keep author and order through later configuration and ordinary edits", async ({
   page,
 }) => {
   const requests: unknown[] = [];
@@ -102,12 +102,10 @@ test("approved AI and manual aspects keep author, excerpt and order through late
           {
             title: "Badania",
             explanation: "Poznaj wkład kandydata w badania.",
-            excerpt: "Prowadzenie badań użytkowników.",
           },
           {
             title: "Automatyzacja",
             explanation: "Poznaj doświadczenie we wdrożeniach.",
-            excerpt: "Projektowanie i wdrażanie automatyzacji obsługi klientów.",
           },
         ],
       }),
@@ -137,9 +135,6 @@ test("approved AI and manual aspects keep author, excerpt and order through late
   await dialog
     .getByLabel("Wyjaśnienie aspektu 3", { exact: true })
     .fill("Opisz samodzielny zakres pracy.");
-  await dialog
-    .getByLabel("Fragment oferty dla aspektu 3", { exact: true })
-    .fill("Badania potrzeb i automatyzacja obsługi klientów.");
   await dialog.getByRole("button", { name: "Przesuń aspekt 3 w górę", exact: true }).click();
   await dialog.getByRole("button", { name: "Przesuń aspekt 2 w górę", exact: true }).click();
   await dialog.getByRole("button", { name: "Dodaj aspekt ręcznie", exact: true }).click();
@@ -161,19 +156,16 @@ test("approved AI and manual aspects keep author, excerpt and order through late
         title: "Zakres pracy",
         author: "employer",
         order: 0,
-        excerpt: "Badania potrzeb i automatyzacja obsługi klientów.",
       },
       {
         title: "Badania — własny wkład",
         author: "employer",
         order: 1,
-        excerpt: "Prowadzenie badań użytkowników.",
       },
       {
         title: "Automatyzacja",
         author: "ai",
         order: 2,
-        excerpt: "Projektowanie i wdrażanie automatyzacji obsługi klientów.",
       },
     ],
   });
@@ -216,7 +208,7 @@ test("approved AI and manual aspects keep author, excerpt and order through late
 });
 
 for (const width of [1280, 390, 320]) {
-  test(`inline deepening retains edits, validates excerpts and recovers from unavailable AI at ${width}px`, async ({
+  test(`inline deepening retains edits, validates required fields and recovers from unavailable AI at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -237,20 +229,21 @@ for (const width of [1280, 390, 320]) {
     await section
       .getByLabel("Wyjaśnienie aspektu 1", { exact: true })
       .fill("Opisz własny wkład we wdrożenie rozwiązania.");
-    const excerpt = section.getByLabel("Fragment oferty dla aspektu 1", { exact: true });
-    await excerpt.fill("Fragment spoza publicznej oferty.");
+    const explanation = section.getByLabel("Wyjaśnienie aspektu 1", { exact: true });
+    await expect(section.getByLabel(/Fragment oferty/)).toHaveCount(0);
+    await explanation.fill("");
     await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
-    const error = page.getByText("Każdy aspekt musi zawierać dokładny", { exact: false });
+    const error = page.getByText("Włączając pogłębienie, uzupełnij", { exact: false });
     await expect(error).toBeFocused();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await excerpt.fill("Prowadzenie badań użytkowników.");
+    await explanation.fill("Opisz własny wkład we wdrożenie rozwiązania.");
     await page.getByRole("button", { name: "Wstecz", exact: true }).click();
     await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
     await expect(section.getByLabel("Nazwa aspektu 1", { exact: true })).toHaveValue(longTitle);
-    await expect(excerpt).toHaveValue("Prowadzenie badań użytkowników.");
+    await expect(explanation).toHaveValue("Opisz własny wkład we wdrożenie rozwiązania.");
     expect(
       (await new AxeBuilder({ page }).include(".employer-editor").analyze()).violations,
     ).toEqual([]);
@@ -262,7 +255,7 @@ for (const width of [1280, 390, 320]) {
     await expect(
       page.getByRole("region", { name: "Podgląd pogłębienia", exact: true }),
     ).toContainText(longTitle);
-    // Returning to public content and removing a citation must require correction before approval.
+    // Public content can change without supplying or repairing a source quotation.
     for (let i = 0; i < 3; i++)
       await page.getByRole("button", { name: "Wstecz", exact: true }).click();
     await page
@@ -271,13 +264,24 @@ for (const width of [1280, 390, 320]) {
     await page.getByRole("button", { name: "Dalej: warunki", exact: true }).click();
     await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
     await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
-    await expect(error).toBeFocused();
-    await toggle.uncheck();
-    await publish(page);
+    await expect(page.getByRole("heading", { name: "Zatwierdzenie", exact: true })).toBeFocused();
+    const preview = page.getByRole("region", { name: "Podgląd pogłębienia", exact: true });
+    await expect(preview).not.toContainText("Fragment oferty");
+    await page.getByRole("checkbox", { name: "Zatwierdzam treść oferty" }).check();
+    await page.getByRole("button", { name: "Opublikuj ofertę", exact: true }).click();
     await expect(
       page.getByRole("link", { name: "Projektant automatyzacji", exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    const saved = await page.evaluate(
+      (key) =>
+        JSON.parse(localStorage.getItem(key)!).jobs.find(
+          (job: { title: string }) => job.title === "Projektant automatyzacji",
+        ),
+      STORAGE_KEY,
+    );
+    expect(saved.deepening.enabled).toBe(true);
+    expect(saved.deepening.aspects[0]).not.toHaveProperty("excerpt");
   });
 }
 

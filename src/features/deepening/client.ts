@@ -54,14 +54,14 @@ async function request(route: string, body: unknown, signal?: AbortSignal) {
 export async function suggestAspects(
   job: Pick<Job, "title" | "summary" | "description">,
   signal?: AbortSignal,
-): Promise<{ aspects: Array<{ title: string; explanation: string; excerpt: string }> }> {
+): Promise<{ aspects: Array<{ title: string; explanation: string }> }> {
   const approved = publicJobSchema.parse({
     title: job.title,
     summary: job.summary,
     description: job.description,
   });
   try {
-    return validateSuggestions(await request("aspects", approved, signal), approved);
+    return validateSuggestions(await request("aspects", approved, signal));
   } catch {
     throw new Error(unavailable);
   }

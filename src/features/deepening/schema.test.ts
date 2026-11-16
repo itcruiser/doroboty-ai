@@ -5,7 +5,7 @@ const aspect = {
   id: "aspect-research",
   title: "Badania",
   explanation: "Opowiedz o badaniach.",
-  excerpt: "Prowadzenie badań",
+
   author: "employer" as const,
   order: 0,
 };
@@ -41,9 +41,12 @@ describe("approved application deepening", () => {
         false,
       );
     }
-    expect(() =>
-      captureDeepeningRevision({ ...job, summary: "Different public summary" }),
-    ).toThrow();
+    expect(captureDeepeningRevision({ ...job, summary: "Different public summary" })).toMatchObject(
+      {
+        summary: "Different public summary",
+        aspects: [aspect],
+      },
+    );
   });
 });
 

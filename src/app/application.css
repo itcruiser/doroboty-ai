@@ -357,21 +357,6 @@
 .deepening-question .application-eyebrow {
   margin-bottom: 8px;
 }
-.deepening-excerpt {
-  margin-block: 18px;
-  font-size: 13px;
-  line-height: 1.6;
-}
-.deepening-excerpt summary {
-  cursor: pointer;
-  width: fit-content;
-}
-.deepening-excerpt blockquote {
-  border-left: 2px solid var(--gui-text);
-  padding-left: 14px;
-  margin-top: 12px;
-  overflow-wrap: anywhere;
-}
 .deepening-question-copy {
   margin-block: 24px 18px;
   line-height: 1.7;

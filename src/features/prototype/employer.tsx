@@ -15,11 +15,7 @@ import {
 import { currentPerson, jobSchema } from "./model";
 import { usePrototype } from "./store";
 import { Field } from "./workspace";
-import {
-  configurationSchema,
-  hasSupportingExcerpts,
-  type DeepeningConfiguration,
-} from "@/features/deepening/schema";
+import { configurationSchema, type DeepeningConfiguration } from "@/features/deepening/schema";
 import { EmployerDeepeningConfiguration } from "@/features/deepening/employer-configuration";
 import { Empty, NotFound, PageTitle } from "./shell";
 
@@ -111,14 +107,7 @@ export function EmployerJobEditor() {
     });
     if (!parsed.success) {
       setError(
-        "Włączając pogłębienie, uzupełnij i zatwierdź od 1 do 3 aspektów: nazwę, wyjaśnienie i fragment oferty.",
-      );
-    } else if (
-      parsed.data.enabled &&
-      !hasSupportingExcerpts({ title, summary, description }, parsed.data.aspects)
-    ) {
-      setError(
-        "Każdy aspekt musi zawierać dokładny, niezmieniony fragment bieżącej treści oferty. Popraw fragment lub wyłącz pogłębienie.",
+        "Włączając pogłębienie, uzupełnij i zatwierdź od 1 do 3 aspektów: nazwę i wyjaśnienie.",
       );
     } else return parsed.data;
     requestAnimationFrame(() => errorRef.current?.focus());
@@ -453,10 +442,6 @@ export function EmployerJobEditor() {
                           {index + 1}. {aspect.title}
                         </h4>
                         <p>{aspect.explanation}</p>
-                        <div className="employer-deepening-citation">
-                          <p className="employer-hint">Fragment oferty</p>
-                          <blockquote>{aspect.excerpt}</blockquote>
-                        </div>
                       </article>
                     ))}
                   </div>

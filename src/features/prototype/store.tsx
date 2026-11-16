@@ -15,7 +15,7 @@ function useStore() {
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(loaded.blocked);
   const latest = useRef(state);
-  const persistedDrafts = useRef(loaded.issue ? [] : loaded.state.drafts);
+  const persistedDrafts = useRef(loaded.blocked ? [] : loaded.state.drafts);
   function commit(next: State, replace = false) {
     latest.current = next;
     setState(next);

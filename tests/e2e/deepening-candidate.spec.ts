@@ -24,7 +24,7 @@ async function seed(page: Page, draft = false, longContent = false) {
         id: `aspect-${order}`,
         title,
         explanation: `Chcemy poznać Twój wkład: ${title.toLocaleLowerCase("pl")}.`,
-        excerpt: description.split(". ")[order].replace(/\.$/, ""),
+
         author: order ? "employer" : "ai",
         order,
       })),
@@ -249,6 +249,27 @@ test("submitted snapshots survive later configuration and export/reset/import; f
     (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
     STORAGE_KEY,
   );
+  // Older saved jobs and application revisions may still carry the retired field.
+  await page.evaluate(
+    ({ key, jobId }) => {
+      const state = JSON.parse(localStorage.getItem(key)!);
+      const savedJob = state.jobs.find((item: { id: string }) => item.id === jobId);
+      for (const aspect of savedJob.deepening.aspects) aspect.excerpt = "Retired offer fragment";
+      for (const aspect of state.applications.at(-1).deepening.revision.aspects)
+        aspect.excerpt = "Retired offer fragment";
+      localStorage.setItem(key, JSON.stringify(state));
+    },
+    { key: STORAGE_KEY, jobId: job.id },
+  );
+  await page.reload();
+  const normalized = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    STORAGE_KEY,
+  );
+  expect(normalized.applications.at(-1)).toEqual(original);
+  expect(
+    normalized.jobs.find((item: { id: string }) => item.id === job.id).deepening.aspects[0],
+  ).not.toHaveProperty("excerpt");
   const choose = async (name: string) => {
     await page.goto("/#/auth/sign-in");
     await page.getByRole("button", { name: `Wejdź jako ${name}`, exact: true }).click();

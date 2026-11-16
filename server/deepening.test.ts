@@ -24,9 +24,7 @@ const publicJob = {
   description: "Badania i automatyzacja",
 };
 const suggestion = {
-  aspects: [
-    { title: "Badania", explanation: "Chcemy poznać wkład", excerpt: "Badania z użytkownikami" },
-  ],
+  aspects: [{ title: "Badania", explanation: "Chcemy poznać wkład" }],
 };
 function modelResponse(result: unknown) {
   return Response.json({
@@ -60,6 +58,13 @@ test("HTTP aspects accepts approved public content and returns validated structu
     text: { format: { type: "json_schema", strict: true } },
   });
   expect(JSON.stringify(outbound)).not.toContain("server-only-secret");
+  const format = (
+    outbound.text as {
+      format: { schema: { properties: { aspects: { items: { required: string[] } } } } };
+    }
+  ).format;
+  expect(format.schema.properties.aspects.items.required).toEqual(["title", "explanation"]);
+  expect(JSON.stringify(format)).not.toContain("excerpt");
 });
 
 const revision = {
@@ -72,7 +77,7 @@ const revision = {
       id: "research",
       title: "Badania",
       explanation: "Własny wkład",
-      excerpt: "Badania z użytkownikami",
+
       author: "employer",
       order: 0,
     },
@@ -80,7 +85,7 @@ const revision = {
       id: "automation",
       title: "Automatyzacja",
       explanation: "Efekt",
-      excerpt: "automatyzacja",
+
       author: "ai",
       order: 1,
     },
@@ -125,20 +130,18 @@ test("HTTP questions reconstructs professional facts and only the requested appr
         aspectId: "research",
         title: "Badania",
         explanation: "Własny wkład",
-        excerpt: "Badania z użytkownikami",
       },
       {
         aspectId: "automation",
         title: "Automatyzacja",
         explanation: "Efekt",
-        excerpt: "automatyzacja",
       },
     ],
     answerFacts: ["Kandydat deklaruje prowadzenie badań z użytkownikami."],
     cvFacts: ["Kandydat deklaruje wdrożenie automatyzacji."],
   });
   expect(payload.instructions).toContain("OPCJONALNEGO");
-  expect(sent).not.toMatch(/job-1|jobRevision|private-key|cv"|profile/);
+  expect(sent).not.toMatch(/job-1|jobRevision|private-key|cv"|profile|excerpt/);
 });
 
 for (const body of [
@@ -166,7 +169,7 @@ for (const body of [
     revision: { ...revision, aspects: [{ ...revision.aspects[0], profile: "private" }] },
   },
 ])
-  test("HTTP rejects unprepared input, invalid IDs/order or unsupported excerpts before OpenAI", async () => {
+  test("HTTP rejects unprepared input, invalid IDs/order or retired aspect fields before OpenAI", async () => {
     let calls = 0;
     const url = await start({
       apiKey: "private-key",
@@ -209,7 +212,7 @@ for (const result of [
     expect(await response.json()).toEqual({ error: expect.any(String) });
   });
 
-test("HTTP rejects invented aspect excerpts and model refusal", async () => {
+test("HTTP rejects retired suggestion fields and model refusal", async () => {
   const url = await start({
     apiKey: "private-key",
     fetch: async () =>

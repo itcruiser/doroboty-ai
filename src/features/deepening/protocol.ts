@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { aspectSchema, hasSupportingExcerpts, revisionSchema } from "./schema.ts";
+import { aspectSchema, revisionSchema } from "./schema.ts";
 import { professionalFacts } from "./privacy.ts";
 
 export const MAX_REQUEST_BYTES = 100_000;
@@ -21,11 +21,6 @@ export const aspectSuggestionsSchema = z
           .object({
             title: z.string().trim().min(1).max(120),
             explanation: z.string().trim().min(1).max(1000),
-            excerpt: z
-              .string()
-              .min(1)
-              .max(12000)
-              .refine((value) => !!value.trim()),
           })
           .strict(),
       )
@@ -85,10 +80,8 @@ export const questionsSchema = z
       .max(3),
   })
   .strict();
-export function validateSuggestions(value: unknown, job: z.infer<typeof publicJobSchema>) {
-  const result = aspectSuggestionsSchema.parse(value);
-  if (!hasSupportingExcerpts(job, result.aspects)) throw new Error("Invalid supporting excerpt");
-  return result;
+export function validateSuggestions(value: unknown) {
+  return aspectSuggestionsSchema.parse(value);
 }
 export function validateQuestions(value: unknown, aspectIds: string[]) {
   const result = questionsSchema.parse(value);

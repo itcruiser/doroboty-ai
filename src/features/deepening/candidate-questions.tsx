@@ -116,10 +116,6 @@ export function CandidateQuestions({
             </p>
             <h3 id={`deepening-aspect-${index}`}>{aspect.title}</h3>
             <p className="application-help">{aspect.explanation}</p>
-            <details className="deepening-excerpt">
-              <summary>Fragment oferty</summary>
-              <blockquote>{aspect.excerpt}</blockquote>
-            </details>
             <p className="deepening-question-copy">
               <span>Pytanie przygotowane przez AI</span>
               {response.question}

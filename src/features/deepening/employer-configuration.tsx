@@ -7,7 +7,7 @@ import { Field } from "@/features/prototype/workspace";
 import { suggestAspects } from "./client";
 import type { ApprovedAspect } from "./schema";
 
-type Suggestion = { title: string; explanation: string; excerpt: string };
+type Suggestion = { title: string; explanation: string };
 export function EmployerDeepeningConfiguration({
   job,
   enabled,
@@ -66,14 +66,13 @@ export function EmployerDeepeningConfiguration({
         id: crypto.randomUUID(),
         title: suggestion?.title ?? "",
         explanation: suggestion?.explanation ?? "",
-        excerpt: suggestion?.excerpt ?? "",
         author: suggestion ? "ai" : "employer",
         order: aspects.length,
       },
     ]);
     if (suggestion) setSuggestions(suggestions.filter((item) => item !== suggestion));
   }
-  function edit(id: string, field: "title" | "explanation" | "excerpt", value: string) {
+  function edit(id: string, field: "title" | "explanation", value: string) {
     setAspects(
       aspects.map((item) =>
         item.id === id ? { ...item, [field]: value, author: "employer" } : item,
@@ -101,7 +100,7 @@ export function EmployerDeepeningConfiguration({
         <>
           <p>
             Wybierz od 1 do 3 aspektów, o które zapytamy kandydatów. Propozycje AI wymagają Twojej
-            akceptacji. Każdy aspekt musi mieć oparcie w publicznej treści oferty.
+            akceptacji. W nazwie i wyjaśnieniu opisz, co kandydat ma rozwinąć w aplikacji.
           </p>
           <div className="employer-inline-actions">
             <Button type="button" variant="outline" disabled={loading} onClick={generate}>
@@ -130,7 +129,6 @@ export function EmployerDeepeningConfiguration({
                 <article key={index}>
                   <h4>{suggestion.title}</h4>
                   <p>{suggestion.explanation}</p>
-                  <blockquote>{suggestion.excerpt}</blockquote>
                   <div className="employer-inline-actions">
                     <Button type="button" variant="outline" onClick={() => add(suggestion)}>
                       Akceptuj propozycję {index + 1}
@@ -176,14 +174,6 @@ export function EmployerDeepeningConfiguration({
                     onChange={(e) => edit(aspect.id, "explanation", e.target.value)}
                   />
                 </Field>
-                <Field label={`Fragment oferty dla aspektu ${index + 1}`}>
-                  <Textarea
-                    aria-label={`Fragment oferty dla aspektu ${index + 1}`}
-                    maxLength={12000}
-                    value={aspect.excerpt}
-                    onChange={(e) => edit(aspect.id, "excerpt", e.target.value)}
-                  />
-                </Field>
                 <div className="employer-inline-actions">
                   <Button
                     type="button"
@@ -215,12 +205,6 @@ export function EmployerDeepeningConfiguration({
               </fieldset>
             ))}
           </section>
-          <details className="employer-public-source">
-            <summary>Publiczna treść oferty — skopiuj fragment</summary>
-            <h3>{job.title}</h3>
-            <p>{job.summary}</p>
-            <p className="whitespace-pre-wrap">{job.description}</p>
-          </details>
           {error && (
             <p ref={errorRef} tabIndex={-1} role="alert" className="error-message">
               {error}

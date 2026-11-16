@@ -3,7 +3,6 @@ import marketplace from "./data/marketplace.json" with { type: "json" };
 import people from "./data/people.json" with { type: "json" };
 import {
   configurationSchema,
-  hasSupportingExcerpts,
   snapshotSchema,
   type DeepeningConfiguration,
   type DeepeningSnapshot,
@@ -67,12 +66,7 @@ export const jobSchema = z
     (job) =>
       job.salaryMin === undefined || job.salaryMax === undefined || job.salaryMin <= job.salaryMax,
     { path: ["salaryMax"], message: "Salary maximum must not be below minimum" },
-  )
-  .refine((job) => !job.deepening.enabled || hasSupportingExcerpts(job, job.deepening.aspects), {
-    path: ["deepening"],
-    message:
-      "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
-  });
+  );
 export const profileSchema = z.object({
   name: shortText,
   headline: shortText,
@@ -393,10 +387,6 @@ export function transition(
       ...action.configuration,
       revision: job.deepening.revision + 1,
     });
-    if (job.deepening.enabled && !hasSupportingExcerpts(job, job.deepening.aspects))
-      fail(
-        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
-      );
     jobSchema.parse(job);
   } else if (action.type === "publish") {
     const p = employer();
@@ -409,10 +399,6 @@ export function transition(
     const changed =
       proposed.enabled !== previous.enabled ||
       JSON.stringify(proposed.aspects) !== JSON.stringify(previous.aspects);
-    if (proposed.enabled && !hasSupportingExcerpts(action.job, proposed.aspects))
-      fail(
-        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
-      );
     const job = jobSchema.parse({
       ...action.job,
       revision: existing ? existing.revision + 1 : 1,

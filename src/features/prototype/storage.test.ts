@@ -44,7 +44,7 @@ describe("browser persistence and recovery", () => {
             id: "aspect-research",
             title: "Badania",
             explanation: "Opowiedz o swoim wkładzie.",
-            excerpt: job.summary,
+
             author: "employer",
             order: 0,
           },
@@ -55,6 +55,75 @@ describe("browser persistence and recovery", () => {
     expect(captureDeepeningRevision(imported.jobs[0]).aspectRevision).toBe(1);
     configured.jobs[0].deepening.revision = 0;
     expect(() => parseState(JSON.stringify(configured))).toThrow("Dotychczasowy stan");
+  });
+  it("removes retired aspect excerpts from loaded and exported jobs and submitted snapshots", () => {
+    let state = transition(initialState(), { type: "select_person", id: "employer-brightlabs" });
+    const job = state.jobs[0];
+    state = transition(state, {
+      type: "configure_deepening",
+      jobId: job.id,
+      configuration: {
+        enabled: true,
+        revision: 1,
+        aspects: [
+          {
+            id: "legacy-aspect",
+            title: "Research",
+            explanation: "Describe your contribution",
+            author: "employer",
+            order: 0,
+          },
+        ],
+      },
+    });
+    const revision = captureDeepeningRevision(state.jobs[0]);
+    state = transition(state, { type: "select_person", id: "candidate-anna" });
+    state = transition(state, {
+      type: "submit",
+      jobId: job.id,
+      notes: "",
+      generated: "",
+      consent: true,
+      answer: "Synthetic approved application answer.",
+      deepening: {
+        status: "completed",
+        revision,
+        responses: [
+          {
+            aspectId: "legacy-aspect",
+            question: "What did you contribute?",
+            answer: "I planned the research.",
+            refused: false,
+            order: 0,
+          },
+        ],
+      },
+    });
+    const legacy = JSON.parse(serializeState(state));
+    legacy.jobs[0].deepening.aspects[0].excerpt = job.summary;
+    legacy.applications.at(-1).deepening.revision.aspects[0].excerpt = job.summary;
+    const expected = structuredClone(legacy);
+    delete expected.jobs[0].deepening.aspects[0].excerpt;
+    delete expected.applications.at(-1).deepening.revision.aspects[0].excerpt;
+    const raw = JSON.stringify(legacy);
+    expect(parseState(raw)).toEqual(expected);
+    const storage = memory(raw);
+    const loaded = readState(storage);
+    expect(loaded.state).toEqual(expected);
+    expect(loaded.blocked).toBe(false);
+    expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual(expected);
+    expect(JSON.parse(serializeState(loaded.state))).toEqual(expected);
+    const unwritable = {
+      getItem: () => raw,
+      setItem() {
+        throw new Error("Quota exceeded");
+      },
+    };
+    const recovered = readState(unwritable);
+    expect(recovered.state).toEqual(expected);
+    expect(recovered.blocked).toBe(false);
+    expect(recovered.issue).toContain("Wyeksportuj");
+    expect(unwritable.getItem()).toBe(raw);
   });
   it("migrates version-1 jobs and preserves applications and legacy draft metadata", () => {
     const legacy = JSON.parse(serializeState(initialState()));
