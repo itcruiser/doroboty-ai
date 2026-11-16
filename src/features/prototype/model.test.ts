@@ -139,3 +139,72 @@ describe("coherent browser scenario", () => {
     ).toThrow();
   });
 });
+
+describe("approved deepening configuration", () => {
+  it("requires own-company approval, versions configuration and preserves it on publication", () => {
+    const state = as(initialState(), "employer-brightlabs");
+    const job = state.jobs[0];
+    const configuration = {
+      enabled: true,
+      revision: 0,
+      aspects: [
+        {
+          id: "aspect-one",
+          title: "Ownership",
+          explanation: "Describe your contribution",
+          excerpt: job.summary,
+          author: "employer" as const,
+          order: 0,
+        },
+      ],
+    };
+    const configured = transition(state, {
+      type: "configure_deepening",
+      jobId: job.id,
+      configuration,
+    });
+    expect(configured.jobs[0].deepening).toEqual({ ...configuration, revision: 1 });
+    expect(configured.jobs[0].revision).toBe(1);
+    expect(() =>
+      transition(as(state, "employer-northstar"), {
+        type: "configure_deepening",
+        jobId: job.id,
+        configuration,
+      }),
+    ).toThrow();
+    expect(() =>
+      transition(state, {
+        type: "configure_deepening",
+        jobId: job.id,
+        configuration: {
+          ...configuration,
+          aspects: [{ ...configuration.aspects[0], excerpt: "Not in the job" }],
+        },
+      }),
+    ).toThrow();
+    const republished = transition(configured, {
+      type: "publish",
+      job: { ...job, title: "Updated role" },
+    });
+    expect(republished.jobs[0].revision).toBe(2);
+    expect(republished.jobs[0].deepening).toEqual(configured.jobs[0].deepening);
+    expect(() =>
+      transition(configured, {
+        type: "publish",
+        job: { ...job, summary: "Removed all cited context" },
+      }),
+    ).toThrow("pogłębienia");
+    const disabled = transition(configured, {
+      type: "configure_deepening",
+      jobId: job.id,
+      configuration: { ...configuration, enabled: false },
+    });
+    expect(disabled.jobs[0].deepening.revision).toBe(2);
+    expect(
+      transition(disabled, {
+        type: "publish",
+        job: { ...job, summary: "Removed all cited context" },
+      }).jobs[0].deepening.enabled,
+    ).toBe(false);
+  });
+});

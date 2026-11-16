@@ -1,6 +1,11 @@
 import { z } from "zod";
 import marketplace from "./data/marketplace.json" with { type: "json" };
 import people from "./data/people.json" with { type: "json" };
+import {
+  configurationSchema,
+  snapshotSchema,
+  type DeepeningConfiguration,
+} from "@/features/deepening/schema";
 import type { JobWithCompany } from "@/features/jobs/types";
 
 const id = z
@@ -51,6 +56,8 @@ export const jobSchema = z
     publishedAt: z.iso.datetime(),
     expiryAt: z.iso.datetime(),
     verificationStatus: z.enum(["unverified", "editorial", "employer_verified"]),
+    revision: z.number().int().positive().default(1),
+    deepening: configurationSchema.default({ enabled: false, revision: 0, aspects: [] }),
     sourceBrief: text.optional(),
     generatedDescription: text.optional(),
   })
@@ -58,6 +65,18 @@ export const jobSchema = z
     (job) =>
       job.salaryMin === undefined || job.salaryMax === undefined || job.salaryMin <= job.salaryMax,
     { path: ["salaryMax"], message: "Salary maximum must not be below minimum" },
+  )
+  .refine(
+    (job) =>
+      !job.deepening.enabled ||
+      job.deepening.aspects.every((aspect) =>
+        [job.title, job.summary, job.description].join("\n\n").includes(aspect.excerpt),
+      ),
+    {
+      path: ["deepening"],
+      message:
+        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
+    },
   );
 export const profileSchema = z.object({
   name: shortText,
@@ -118,6 +137,7 @@ const applicationSchema = z.object({
   score: z.number().int().min(0).max(100),
   summary: text,
   stage: z.enum(stages),
+  deepening: snapshotSchema.optional(),
   events: z
     .array(z.object({ stage: z.enum(stages), at: z.iso.datetime(), note: text }))
     .min(1)
@@ -132,7 +152,7 @@ const draftSchema = z.object({
 });
 export const stateSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     activePersonId: id.nullable(),
     companies: z.array(companySchema).min(1).max(200),
     jobs: z.array(jobSchema).min(1).max(1000),
@@ -212,12 +232,13 @@ export type Action =
     }
   | { type: "stage"; applicationId: string; stage: Stage; note: string }
   | { type: "withdraw"; applicationId: string }
-  | { type: "publish"; job: z.infer<typeof jobSchema> }
+  | { type: "configure_deepening"; jobId: string; configuration: DeepeningConfiguration }
+  | { type: "publish"; job: z.input<typeof jobSchema> }
   | { type: "company"; name: string; description: string };
 
 export function initialState(): State {
   const state = stateSchema.parse({
-    version: 1,
+    version: 2,
     activePersonId: null,
     ...marketplace,
     people,
@@ -335,9 +356,45 @@ export function transition(
     }
     application.stage = stage;
     application.events.push({ stage, at: now, note: action.type === "stage" ? action.note : "" });
+  } else if (action.type === "configure_deepening") {
+    const p = employer();
+    const job = s.jobs.find((item) => item.id === action.jobId);
+    if (!job || job.companyId !== p.companyId) return fail("Wybierz ofertę własnej firmy.");
+    job.deepening = configurationSchema.parse({
+      ...action.configuration,
+      revision: job.deepening.revision + 1,
+    });
+    if (
+      job.deepening.enabled &&
+      job.deepening.aspects.some(
+        (aspect) =>
+          ![job.title, job.summary, job.description].join("\n\n").includes(aspect.excerpt),
+      )
+    )
+      fail(
+        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
+      );
+    jobSchema.parse(job);
   } else if (action.type === "publish") {
     const p = employer();
-    const job = jobSchema.parse(action.job);
+    const existing = s.jobs.find((item) => item.id === action.job.id);
+    if (
+      existing?.deepening.enabled &&
+      existing.deepening.aspects.some(
+        (aspect) =>
+          ![action.job.title, action.job.summary, action.job.description]
+            .join("\n\n")
+            .includes(aspect.excerpt),
+      )
+    )
+      fail(
+        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
+      );
+    const job = jobSchema.parse({
+      ...action.job,
+      revision: existing ? existing.revision + 1 : 1,
+      deepening: existing?.deepening ?? { enabled: false, revision: 0, aspects: [] },
+    });
     if (job.companyId !== p.companyId) fail("Wybierz ofertę własnej firmy.");
     const index = s.jobs.findIndex((x) => x.id === job.id);
     if (index >= 0) {

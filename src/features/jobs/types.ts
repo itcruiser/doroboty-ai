@@ -1,3 +1,5 @@
+import type { DeepeningConfiguration } from "@/features/deepening/schema";
+
 export const jobCategories = ["build", "apply", "lead"] as const;
 export const jobFunctions = [
   "product",
@@ -39,6 +41,8 @@ export type Company = {
 };
 
 export type Job = {
+  revision?: number;
+  deepening?: DeepeningConfiguration;
   id: string;
   slug: string;
   companyId: string;

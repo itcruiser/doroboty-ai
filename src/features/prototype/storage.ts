@@ -9,7 +9,23 @@ export function parseState(raw: string): State {
   if (new TextEncoder().encode(raw).length > MAX_IMPORT_BYTES)
     throw new Error("Plik jest za duży (maksymalnie 2 MB).");
   try {
-    return stateSchema.parse(JSON.parse(raw));
+    const input = JSON.parse(raw);
+    if (input?.version === 1) {
+      input.version = 2;
+      if (Array.isArray(input.jobs))
+        input.jobs = input.jobs.map((job: Record<string, unknown>) => ({
+          ...job,
+          revision: 1,
+          deepening: { enabled: false, revision: 0, aspects: [] },
+        }));
+      if (Array.isArray(input.applications))
+        input.applications = input.applications.map((application: Record<string, unknown>) => {
+          const legacy = { ...application };
+          delete legacy.deepening;
+          return legacy;
+        });
+    }
+    return stateSchema.parse(input);
   } catch {
     throw new Error(
       "Nieprawidłowy plik lub nieobsługiwana wersja danych. Dotychczasowy stan pozostaje bez zmian.",
