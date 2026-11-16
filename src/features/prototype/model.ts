@@ -1,6 +1,7 @@
 import { z } from "zod";
 import marketplace from "./data/marketplace.json" with { type: "json" };
 import people from "./data/people.json" with { type: "json" };
+import { configurationSchema, snapshotSchema } from "@/features/deepening/schema";
 import type { JobWithCompany } from "@/features/jobs/types";
 
 const id = z
@@ -51,6 +52,8 @@ export const jobSchema = z
     publishedAt: z.iso.datetime(),
     expiryAt: z.iso.datetime(),
     verificationStatus: z.enum(["unverified", "editorial", "employer_verified"]),
+    revision: z.number().int().positive().default(1),
+    deepening: configurationSchema.default({ enabled: false, revision: 0, aspects: [] }),
     sourceBrief: text.optional(),
     generatedDescription: text.optional(),
   })
@@ -118,6 +121,7 @@ const applicationSchema = z.object({
   score: z.number().int().min(0).max(100),
   summary: text,
   stage: z.enum(stages),
+  deepening: snapshotSchema.optional(),
   events: z
     .array(z.object({ stage: z.enum(stages), at: z.iso.datetime(), note: text }))
     .min(1)
@@ -132,7 +136,7 @@ const draftSchema = z.object({
 });
 export const stateSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     activePersonId: id.nullable(),
     companies: z.array(companySchema).min(1).max(200),
     jobs: z.array(jobSchema).min(1).max(1000),
@@ -217,7 +221,7 @@ export type Action =
 
 export function initialState(): State {
   const state = stateSchema.parse({
-    version: 1,
+    version: 2,
     activePersonId: null,
     ...marketplace,
     people,
