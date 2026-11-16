@@ -112,6 +112,30 @@ test("entering deepening removes the draft without submitting; refresh starts th
   await expect(page.getByRole("button", { name: "Wyślij aplikację", exact: true })).toHaveCount(0);
 });
 
+test("a failed durable draft deletion keeps the first step and makes no generation request", async ({
+  page,
+}) => {
+  const requests = await questions(page);
+  const job = await seed(page, true);
+  const before = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException("Quota exceeded", "QuotaExceededError");
+    };
+  });
+  await enter(page);
+  await expect(page.locator("main")).toContainText(/Nie udało się zapisać|usunąć szkicu/);
+  await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveValue(answer);
+  await expect(aspect(page, 0)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Zapisz szkic", exact: true })).toBeVisible();
+  expect(requests).toHaveLength(0);
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(before);
+  const stored = JSON.parse(before!);
+  expect(stored.drafts.find((item: { jobId: string }) => item.jobId === job.id)?.answer).toBe(
+    answer,
+  );
+});
+
 test("decided questions survive edits; one immutable application contains final answers, refusal and CV", async ({
   page,
 }) => {
