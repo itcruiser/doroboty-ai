@@ -227,6 +227,19 @@ test("submitted snapshots survive later configuration and export/reset/import; f
   test.setTimeout(90_000);
   const requests = await questions(page);
   const job = await seed(page, true);
+  // This scenario needs a second candidate who has not already applied to this job.
+  await page.evaluate(
+    ({ key, jobId }) => {
+      const state = JSON.parse(localStorage.getItem(key)!);
+      state.applications = state.applications.filter(
+        (application: { candidateId: string; jobId: string }) =>
+          application.candidateId !== "candidate-marek" || application.jobId !== jobId,
+      );
+      localStorage.setItem(key, JSON.stringify(state));
+    },
+    { key: STORAGE_KEY, jobId: job.id },
+  );
+  await page.reload();
   await enter(page);
   for (let index = 0; index < 3; index++)
     await aspect(page, index).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
@@ -284,13 +297,15 @@ test("submitted snapshots survive later configuration and export/reset/import; f
     buffer: Buffer.from(exported),
   });
   await page.getByRole("button", { name: "Importuj", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Dane zostały zaimportowane");
-  expect(
-    await page.evaluate(
-      (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
-      STORAGE_KEY,
-    ),
-  ).toEqual(original);
+  await expect(page.getByRole("complementary")).toContainText("Marek Nowak");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
+        STORAGE_KEY,
+      ),
+    )
+    .toEqual(original);
   expect(original.sourceNotes).toBe("Legacy private source notes");
   expect(original.generatedAnswer).toBe("Legacy unapproved generation");
   await choose("Anna Kowalska");
