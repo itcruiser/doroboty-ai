@@ -488,6 +488,35 @@ for (const width of [1280, 320]) {
   });
 }
 
+test("editing and restoring the answer after failed generation requires fresh fact confirmation", async ({
+  page,
+}) => {
+  let calls = 0;
+  await page.route("**/api/deepening/questions", (route) => {
+    calls++;
+    return route.fulfill({ status: 503, json: { error: "Generation unavailable" } });
+  });
+  await seed(page);
+  const original = "Mam doświadczenie w badaniu potrzeb i usprawnianiu procesów.";
+  const input = page.getByLabel("Dlaczego pasujesz do tej roli?");
+  await input.fill(original);
+  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
+  await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
+  const facts = page.getByRole("group", { name: "Informacje do pytań", exact: true });
+  await facts.getByRole("checkbox", { name: "Badania z użytkownikami", exact: true }).check();
+  await page.getByRole("button", { name: "Potwierdź i przygotuj pytania", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Spróbuj ponownie", exact: true })).toBeVisible();
+  expect(calls).toBe(1);
+  await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
+  await input.fill(`${original} Dodatkowy opis.`);
+  await input.fill(original);
+  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
+  await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
+  await expect(facts).toBeVisible();
+  await expect(facts.getByRole("checkbox", { checked: true })).toHaveCount(0);
+  expect(calls).toBe(1);
+});
+
 for (const width of [1280, 390, 320]) {
   test(`focused application and long deepening questions support keyboard and reflow at ${width}px`, async ({
     page,

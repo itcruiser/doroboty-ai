@@ -172,6 +172,10 @@ export function useCandidateDeepening() {
     enter,
     decide,
     snapshot,
+    invalidatePreparation: () => {
+      if (current.current && !request.current)
+        update({ ...current.current, preparation: undefined });
+    },
     selectFact: (answer: string, fact: ProfessionalFact, selected: boolean) => {
       const captured = current.current;
       if (!captured || request.current) return;

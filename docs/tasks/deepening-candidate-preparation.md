@@ -20,3 +20,21 @@ Public test seams remain those already agreed in the supplied spec/implementatio
 - Browser RED: the candidate route showed no named recovery fieldset. GREEN: the two new recovery journeys passed at 1280/320px, including keyboard selection, no automatic request after back/forward, invalidation on answer edits, decided-question preservation, HTTP fact payloads, Axe and reflow. A final-send assertion was subsequently added on desktop; the mobile variant retains refresh-loss verification. Full gate below will cover those additions.
 - Live smoke through the development application used an isolated fresh Chromium context and synthetic data. Selecting and explicitly confirming two facts generated a real AI question: HTTP 200, one visible question, zero candidate applications created. No application was submitted or user browser state modified. No key/request/response body was logged; only statuses/counts were printed. This proves that generation worked for that single synthetic scenario, not model quality.
 - Root inspected desktop/mobile recovery captures in artifacts/deepening/preparation-1280.png and preparation-320.png. They preserve the single sheet, complete wrapping and C04 control anatomy. The local reference catalog was run on 8952; the immutable kit was untouched. Only the recovery confirmation is the primary action; skip is secondary while preparing facts. Confirmation focuses the surviving heading before controls unmount.
+
+## Separate review
+
+### Standards
+
+The read-only standards pass found no actionable violations. It checked the shared schemas, local-only preparation state, Base UI/C04 composition, immutable kit, Polish UI/English engineering documentation and updated behavior register.
+
+### Spec
+
+The read-only spec pass found one P2: editing and restoring the original step-1 answer after a failed generation retained prior fact confirmation. A browser regression failed against the reviewed build because the recovery fieldset did not return. The fix invalidates preparation on every answer change, including edits later reverted to the original value; the entry comparison remains defensive. The remaining inspected recovery/privacy/atomicity requirements matched the addendum.
+
+## Validation
+
+The first complete `./scripts/verify` run passed: 83 unit tests, 54 browser journeys, formatting, immutable-kit checks, lint, types, baseline packet verification and production build. The final gate below also includes the review regression. Existing build warnings concern upstream Zod annotations and bundle size; they did not fail the gate.
+
+The focused post-review run passed all three recovery journeys (desktop, 320px and failed-generation/edit/revert). An independent read-only re-review confirmed the P2 closed with no additional findings. Participant packaging to /tmp/doroboty-candidate-recovery-ready succeeded with baseline verification; Git history and instructor materials were excluded. The catalog process started for this task was stopped; the user's development servers remain running.
+
+Final `./scripts/verify` completed successfully after the review fix: 83 unit tests and 55 Chromium journeys, plus formatting, immutable-kit checks (67 reference files and six renderer tests), lint, types, baseline packet verification and production build. Desktop/mobile captures were inspected again after the final UI adjustments. This is local verification, not CI, deployment or human approval.

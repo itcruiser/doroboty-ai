@@ -189,6 +189,7 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
                     aria-describedby="application-answer-help"
                     value={answer}
                     onChange={(e) => {
+                      deepening.invalidatePreparation();
                       setAnswer(e.target.value);
                       setConsent(false);
                     }}
