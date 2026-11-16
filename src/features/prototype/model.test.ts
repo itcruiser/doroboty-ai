@@ -185,14 +185,14 @@ describe("approved deepening configuration", () => {
     ).toThrow();
     const republished = transition(configured, {
       type: "publish",
-      job: { ...job, title: "Updated role" },
+      job: { ...configured.jobs[0], title: "Updated role" },
     });
     expect(republished.jobs[0].revision).toBe(2);
     expect(republished.jobs[0].deepening).toEqual(configured.jobs[0].deepening);
     expect(() =>
       transition(configured, {
         type: "publish",
-        job: { ...job, summary: "Removed all cited context" },
+        job: { ...configured.jobs[0], summary: "Removed all cited context" },
       }),
     ).toThrow("pogłębienia");
     const disabled = transition(configured, {
@@ -204,10 +204,72 @@ describe("approved deepening configuration", () => {
     expect(
       transition(disabled, {
         type: "publish",
-        job: { ...job, summary: "Removed all cited context" },
+        job: { ...disabled.jobs[0], summary: "Removed all cited context" },
       }).jobs[0].deepening.enabled,
     ).toBe(false);
   });
+});
+
+it("publishes edited public text and approved aspects atomically with domain-owned revisions", () => {
+  const state = as(initialState(), "employer-brightlabs");
+  const job = state.jobs[0];
+  const original = structuredClone(state);
+  const newDescription = "New public project scope and research responsibilities.";
+  const edited = {
+    ...job,
+    description: newDescription,
+    deepening: {
+      enabled: true,
+      revision: 999,
+      aspects: [
+        {
+          id: "inline-aspect",
+          title: "Research",
+          explanation: "Describe your contribution",
+          excerpt: newDescription,
+          author: "employer" as const,
+          order: 0,
+        },
+      ],
+    },
+  };
+  const published = transition(state, { type: "publish", job: edited });
+  expect(state).toEqual(original);
+  expect(published.jobs[0]).toMatchObject({
+    description: newDescription,
+    revision: 2,
+    deepening: { enabled: true, revision: 1, aspects: edited.deepening.aspects },
+  });
+  const unchanged = transition(published, { type: "publish", job: published.jobs[0] });
+  expect(unchanged.jobs[0].deepening.revision).toBe(1);
+  const revised = transition(unchanged, {
+    type: "publish",
+    job: {
+      ...unchanged.jobs[0],
+      deepening: {
+        ...edited.deepening,
+        revision: 0,
+        aspects: [{ ...edited.deepening.aspects[0], title: "Revised research" }],
+      },
+    },
+  });
+  expect(revised.jobs[0].deepening.revision).toBe(2);
+  expect(() =>
+    transition(state, {
+      type: "publish",
+      job: {
+        ...edited,
+        deepening: {
+          ...edited.deepening,
+          aspects: [{ ...edited.deepening.aspects[0], excerpt: "Missing citation" }],
+        },
+      },
+    }),
+  ).toThrow();
+  expect(state).toEqual(original);
+  expect(() =>
+    transition(as(state, "employer-northstar"), { type: "publish", job: edited }),
+  ).toThrow();
 });
 
 function enabledState() {

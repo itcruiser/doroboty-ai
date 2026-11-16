@@ -255,10 +255,13 @@ test("submitted snapshots survive later configuration and export/reset/import; f
   };
   await choose("Karolina Wiśniewska");
   await page.goto(`/#/app/oferty/${job.id}`);
-  await page.getByRole("button", { name: "Konfiguruj pogłębienie", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Tryb pogłębienia", exact: true });
+  for (const name of ["Dalej: treść oferty", "Dalej: warunki", "Dalej: pogłębienie"])
+    await page.getByRole("button", { name, exact: true }).click();
+  const dialog = page.getByRole("region", { name: "Konfiguracja pogłębienia", exact: true });
   await dialog.getByLabel("Nazwa aspektu 1", { exact: true }).fill("Nowy zakres badań");
-  await dialog.getByRole("button", { name: "Zapisz pogłębienie", exact: true }).click();
+  await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Zatwierdzam treść oferty" }).check();
+  await page.getByRole("button", { name: "Zapisz i opublikuj zmiany", exact: true }).click();
   expect(
     await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
@@ -315,8 +318,12 @@ test("submitted snapshots survive later configuration and export/reset/import; f
   await expect(submitted).not.toContainText("Nowy zakres badań");
   await choose("Karolina Wiśniewska");
   await page.goto(`/#/app/oferty/${job.id}`);
-  await page.getByRole("button", { name: "Konfiguruj pogłębienie", exact: true }).click();
-  await dialog.getByRole("button", { name: "Wyłącz pogłębienie", exact: true }).click();
+  for (const name of ["Dalej: treść oferty", "Dalej: warunki", "Dalej: pogłębienie"])
+    await page.getByRole("button", { name, exact: true }).click();
+  await dialog.getByRole("checkbox", { name: "Włącz pogłębienie" }).uncheck();
+  await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Zatwierdzam treść oferty" }).check();
+  await page.getByRole("button", { name: "Zapisz i opublikuj zmiany", exact: true }).click();
   expect(
     await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),

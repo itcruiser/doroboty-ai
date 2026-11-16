@@ -1,26 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/features/prototype/workspace";
-import { usePrototype } from "@/features/prototype/store";
-import type { State } from "@/features/prototype/model";
 import { suggestAspects } from "./client";
-import { configurationSchema, hasSupportingExcerpts, type ApprovedAspect } from "./schema";
+import type { ApprovedAspect } from "./schema";
 
 type Suggestion = { title: string; explanation: string; excerpt: string };
 export function EmployerDeepeningConfiguration({
   job,
-  newPublication = false,
-  onClose,
+  enabled,
+  aspects,
+  onEnabledChange,
+  onAspectsChange: setAspects,
 }: {
-  job: State["jobs"][number];
-  newPublication?: boolean;
-  onClose: () => void;
+  job: { title: string; summary: string; description: string };
+  enabled: boolean;
+  aspects: ApprovedAspect[];
+  onEnabledChange: (enabled: boolean) => void;
+  onAspectsChange: (aspects: ApprovedAspect[]) => void;
 }) {
-  const { run } = usePrototype();
-  const [aspects, setAspects] = useState<ApprovedAspect[]>(job.deepening?.aspects ?? []);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [generationError, setGenerationError] = useState("");
@@ -44,7 +44,7 @@ export function EmployerDeepeningConfiguration({
     } catch {
       if (!request.signal.aborted)
         setGenerationError(
-          "Nie udało się przygotować propozycji. Spróbuj ponownie lub dodaj aspekt ręcznie. Oferta pozostaje opublikowana.",
+          "Nie udało się przygotować propozycji. Spróbuj ponownie, dodaj aspekt ręcznie lub wyłącz pogłębienie i przejdź dalej.",
         );
     } finally {
       if (!request.signal.aborted) setLoading(false);
@@ -85,47 +85,20 @@ export function EmployerDeepeningConfiguration({
     [next[index], next[index + offset]] = [next[index + offset], next[index]];
     setAspects(next.map((item, order) => ({ ...item, order })));
   }
-  function save(enabled: boolean) {
-    const configuration = {
-      enabled,
-      revision: (job.deepening?.revision ?? 0) + 1,
-      aspects: enabled
-        ? aspects.map((item, order) => ({ ...item, order }))
-        : (job.deepening?.aspects ?? []),
-    };
-    const parsed = configurationSchema.safeParse(configuration);
-    if (!parsed.success) {
-      report(
-        "Włączając pogłębienie, zatwierdź od 1 do 3 aspektów. Uzupełnij nazwę, wyjaśnienie i fragment oferty w każdym aspekcie.",
-      );
-      return;
-    }
-    if (enabled && !hasSupportingExcerpts(job, parsed.data.aspects)) {
-      report(
-        "Każdy aspekt musi zawierać dokładny, niezmieniony fragment zapisanej oferty. Skopiuj go z treści poniżej.",
-      );
-      return;
-    }
-    if (run({ type: "configure_deepening", jobId: job.id, configuration: parsed.data })) onClose();
-  }
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent className="employer-deepening-dialog">
-        <header>
-          <p className="employer-eyebrow">Dodatkowe pytania w aplikacji</p>
-          <DialogTitle>Tryb pogłębienia</DialogTitle>
-          <DialogDescription>
-            {newPublication
-              ? "Oferta jest już opublikowana."
-              : "Konfiguracja dotyczy przyszłych formularzy. Wysłane aplikacje zachowują wcześniejsze dane."}
-          </DialogDescription>
-        </header>
-        <div className="employer-deepening-body">
+    <section className="employer-deepening-body" aria-label="Konfiguracja pogłębienia">
+      <p>
+        Opcjonalny krok: wybierz, o co dopytamy kandydatów podczas aplikowania. Konfigurację
+        zapiszemy razem z ofertą po Twoim końcowym zatwierdzeniu. Wysłane aplikacje zachowają
+        wcześniejsze dane.
+      </p>
+      <label className="employer-deepening-toggle">
+        <Checkbox checked={enabled} onCheckedChange={onEnabledChange} />
+        <span>Włącz pogłębienie</span>
+      </label>
+      {!enabled && <p>Pogłębienie jest wyłączone. Możesz przejść do zatwierdzenia oferty.</p>}
+      {enabled && (
+        <>
           <p>
             Wybierz od 1 do 3 aspektów, o które zapytamy kandydatów. Propozycje AI wymagają Twojej
             akceptacji. Każdy aspekt musi mieć oparcie w publicznej treści oferty.
@@ -142,7 +115,9 @@ export function EmployerDeepeningConfiguration({
               Dodaj aspekt ręcznie
             </Button>
           </div>
-          {loading && <p role="status">Pobieramy propozycje na podstawie opublikowanej oferty.</p>}
+          {loading && (
+            <p role="status">Pobieramy propozycje na podstawie bieżącej treści oferty.</p>
+          )}
           {generationError && (
             <p role="alert" className="error-message">
               {generationError}
@@ -251,21 +226,8 @@ export function EmployerDeepeningConfiguration({
               {error}
             </p>
           )}
-        </div>
-        <footer className="employer-deepening-footer">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {newPublication ? "Pomiń" : "Anuluj"}
-          </Button>
-          {!newPublication && job.deepening?.enabled && (
-            <Button type="button" variant="outline" onClick={() => save(false)}>
-              Wyłącz pogłębienie
-            </Button>
-          )}
-          <Button type="button" onClick={() => save(true)}>
-            {job.deepening?.enabled ? "Zapisz pogłębienie" : "Włącz pogłębienie"}
-          </Button>
-        </footer>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    </section>
   );
 }

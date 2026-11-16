@@ -106,13 +106,10 @@ test("published job → saved offer/draft → submitted application → employer
   await page.getByRole("button", { name: "Użyj propozycji" }).click();
   await page.getByRole("button", { name: "Dalej: treść oferty", exact: true }).click();
   await page.getByRole("button", { name: "Dalej: warunki", exact: true }).click();
+  await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
   await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Opublikuj ofertę" }).click();
-  await page
-    .getByRole("dialog", { name: "Tryb pogłębienia", exact: true })
-    .getByRole("button", { name: "Pomiń", exact: true })
-    .click();
   await expect(
     page.getByRole("link", { name: "Product Designer do automatyzacji", exact: true }),
   ).toBeVisible();

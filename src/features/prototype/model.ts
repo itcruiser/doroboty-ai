@@ -401,17 +401,22 @@ export function transition(
   } else if (action.type === "publish") {
     const p = employer();
     const existing = s.jobs.find((item) => item.id === action.job.id);
-    if (
-      existing?.deepening.enabled &&
-      !hasSupportingExcerpts(action.job, existing.deepening.aspects)
-    )
+    const previous = existing?.deepening ?? { enabled: false, revision: 0, aspects: [] };
+    const proposed = configurationSchema.parse({
+      ...(action.job.deepening ?? previous),
+      revision: previous.revision + 1,
+    });
+    const changed =
+      proposed.enabled !== previous.enabled ||
+      JSON.stringify(proposed.aspects) !== JSON.stringify(previous.aspects);
+    if (proposed.enabled && !hasSupportingExcerpts(action.job, proposed.aspects))
       fail(
         "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
       );
     const job = jobSchema.parse({
       ...action.job,
       revision: existing ? existing.revision + 1 : 1,
-      deepening: existing?.deepening ?? { enabled: false, revision: 0, aspects: [] },
+      deepening: { ...proposed, revision: changed ? previous.revision + 1 : previous.revision },
     });
     if (job.companyId !== p.companyId) fail("Wybierz ofertę własnej firmy.");
     const index = s.jobs.findIndex((x) => x.id === job.id);

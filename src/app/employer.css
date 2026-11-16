@@ -55,16 +55,14 @@
   padding: 32px;
   border-radius: 24px;
 }
-.employer-editor-sheet h2,
-.employer-deepening-dialog [data-slot="dialog-title"] {
+.employer-editor-sheet h2 {
   font-family: var(--font-display);
   font-size: 36px;
   font-weight: 400;
   line-height: 1.15;
   letter-spacing: -0.8px;
 }
-.employer-editor-sheet h3,
-.employer-deepening-dialog h3 {
+.employer-editor-sheet h3 {
   font-size: 26px;
   line-height: 1.2;
   font-weight: 400;
@@ -99,8 +97,7 @@
   margin-top: 4px;
 }
 .employer-editor-actions,
-.employer-inline-actions,
-.employer-deepening-footer {
+.employer-inline-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -115,39 +112,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
 }
-.employer-configuration-entry {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.employer-deepening-dialog[data-slot="dialog-content"] {
-  display: flex;
-  flex-direction: column;
-  width: min(820px, calc(100vw - 32px));
-  max-width: none;
-  max-height: calc(100dvh - 32px);
-  gap: 0;
-  padding: 0;
-  border-radius: 24px;
-  box-shadow: 0 0 0 1px var(--gui-edge);
-}
-.employer-deepening-dialog > header {
-  padding: 28px 32px 24px;
-  padding-right: 62px;
-  border-bottom: 1px solid var(--gui-edge);
-}
-.employer-deepening-dialog [data-slot="dialog-description"] {
-  margin-top: 12px;
-}
 .employer-deepening-body {
   display: grid;
   gap: 24px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  min-height: 0;
-  padding: 28px 32px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .employer-deepening-body > p {
   line-height: 1.7;
@@ -201,15 +170,20 @@
 .employer-public-source[open] > * + * {
   margin-top: 18px;
 }
-.employer-deepening-footer {
-  flex-shrink: 0;
-  padding: 20px 32px;
-  justify-content: flex-end;
-  border-top: 1px solid var(--gui-edge);
-}
-.employer-editor button,
-.employer-deepening-dialog button {
+.employer-editor button {
   white-space: normal;
+  max-width: 100%;
+}
+.employer-deepening-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 39px;
+}
+.employer-deepening-toggle [data-slot="checkbox"] {
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
 }
 @media (max-width: 850px) {
   .employer-editor-layout {
@@ -220,7 +194,7 @@
     padding: 0;
   }
   .employer-editor-guide ol {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     margin-block: 16px;
     gap: 8px;
   }
@@ -229,37 +203,33 @@
     align-items: flex-start;
     gap: 8px;
     font-size: 12px;
+    overflow-wrap: anywhere;
   }
   .employer-editor-guide > p {
     display: none;
   }
 }
 @media (max-width: 600px) {
+  .employer-editor-guide ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .employer-editor-guide li {
+    flex-direction: row;
+    align-items: center;
+    overflow-wrap: normal;
+  }
+  .employer-editor-guide li span {
+    flex-shrink: 0;
+  }
   .employer-editor-sheet {
     padding: 22px;
   }
-  .employer-editor-sheet h2,
-  .employer-deepening-dialog [data-slot="dialog-title"] {
+  .employer-editor-sheet h2 {
     font-size: 32px;
   }
   .employer-terms-grid {
     grid-template-columns: 1fr;
-  }
-  .employer-deepening-dialog[data-slot="dialog-content"] {
-    width: calc(100vw - 20px);
-    max-height: calc(100dvh - 20px);
-  }
-  .employer-deepening-dialog > header {
-    padding: 24px 48px 20px 20px;
-  }
-  .employer-deepening-body {
-    padding: 20px;
-  }
-  .employer-deepening-footer {
-    padding: 18px 20px;
-  }
-  .employer-deepening-footer > button {
-    flex: 1 1 100%;
   }
   .employer-aspect,
   .employer-proposals article {

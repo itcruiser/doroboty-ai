@@ -15,6 +15,11 @@ import {
 import { currentPerson, jobSchema } from "./model";
 import { usePrototype } from "./store";
 import { Field } from "./workspace";
+import {
+  configurationSchema,
+  hasSupportingExcerpts,
+  type DeepeningConfiguration,
+} from "@/features/deepening/schema";
 import { EmployerDeepeningConfiguration } from "@/features/deepening/employer-configuration";
 import { Empty, NotFound, PageTitle } from "./shell";
 
@@ -90,11 +95,34 @@ export function EmployerJobEditor() {
   const [approved, setApproved] = useState(false);
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");
-  const [configurationJobId, setConfigurationJobId] = useState<string | null>(null);
-  const [newPublication, setNewPublication] = useState(false);
+  const [deepening, setDeepening] = useState<DeepeningConfiguration>(
+    existing?.deepening ?? { enabled: false, revision: 0, aspects: [] },
+  );
   const heading = useRef<HTMLHeadingElement>(null);
-  const configurationJob = state.jobs.find((job) => job.id === configurationJobId);
-  const stages = ["Kogo szukasz", "Treść oferty", "Warunki", "Zatwierdzenie"];
+  const stages = ["Kogo szukasz", "Treść oferty", "Warunki", "Pogłębienie", "Zatwierdzenie"];
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  function preparedConfiguration() {
+    const parsed = configurationSchema.safeParse({
+      ...deepening,
+      revision: (existing?.deepening.revision ?? 0) + 1,
+      aspects: deepening.enabled
+        ? deepening.aspects.map((aspect, order) => ({ ...aspect, order }))
+        : (existing?.deepening.aspects ?? []),
+    });
+    if (!parsed.success) {
+      setError(
+        "Włączając pogłębienie, uzupełnij i zatwierdź od 1 do 3 aspektów: nazwę, wyjaśnienie i fragment oferty.",
+      );
+    } else if (
+      parsed.data.enabled &&
+      !hasSupportingExcerpts({ title, summary, description }, parsed.data.aspects)
+    ) {
+      setError(
+        "Każdy aspekt musi zawierać dokładny, niezmieniony fragment bieżącej treści oferty. Popraw fragment lub wyłącz pogłębienie.",
+      );
+    } else return parsed.data;
+    requestAnimationFrame(() => errorRef.current?.focus());
+  }
   if (id !== "nowa" && !existing) return <NotFound />;
   function move(next: number) {
     setError("");
@@ -118,11 +146,12 @@ export function EmployerJobEditor() {
       setError("Podaj lokalizację i sprawdź kolejność widełek wynagrodzenia.");
       return;
     }
+    if (stage === 3 && !preparedConfiguration()) return;
     move(stage + 1);
   }
   function publish(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (stage < 3) {
+    if (stage < 4) {
       next();
       return;
     }
@@ -131,10 +160,16 @@ export function EmployerJobEditor() {
       setError("Zatwierdź opis przed publikacją.");
       return;
     }
+    const configuration = preparedConfiguration();
+    if (!configuration) {
+      setStage(3);
+      return;
+    }
     const newId = existing?.id ?? crypto.randomUUID();
     const parsed = jobSchema.safeParse({
       ...existing,
       id: newId,
+      deepening: configuration,
       slug: existing?.slug ?? `oferta-${newId}`,
       companyId: person.companyId,
       title,
@@ -168,51 +203,17 @@ export function EmployerJobEditor() {
       verificationStatus: "employer_verified",
     });
     if (!parsed.success) {
-      if (
-        existing?.deepening.enabled &&
-        existing.deepening.aspects.some(
-          (aspect) => ![title, summary, description].join("\n\n").includes(aspect.excerpt),
-        )
-      ) {
-        setError(
-          "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: zmieniona oferta nie zawiera zatwierdzonego fragmentu. Otwórz konfigurację nad formularzem i wyłącz tryb przed zapisaniem zmienionej treści.",
-        );
-        return;
-      }
       setError(
         "Sprawdź długość i poprawność wszystkich pól oraz widełki wynagrodzenia. Wróć do odpowiedniego kroku, aby je poprawić.",
       );
       return;
     }
-    if (run({ type: "publish", job: parsed.data })) {
-      if (
-        !existing ||
-        existing.publicationStatus === "draft" ||
-        existing.publicationStatus === "review"
-      ) {
-        setNewPublication(true);
-        setConfigurationJobId(newId);
-      } else navigate("/app/oferty");
-    }
+    if (run({ type: "publish", job: parsed.data })) navigate("/app/oferty");
   }
+
   return (
     <div className="employer-editor">
       <PageTitle>{existing ? "Edytuj ofertę" : "Nowa oferta"}</PageTitle>
-      {existing && (
-        <div className="employer-configuration-entry">
-          <p>
-            Tryb pogłębienia: {existing.deepening?.enabled ? "włączony" : "wyłączony"}. Zmiany
-            dotyczą przyszłych formularzy.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setConfigurationJobId(existing.id)}
-          >
-            Konfiguruj pogłębienie
-          </Button>
-        </div>
-      )}
       <div className="employer-editor-layout">
         <aside className="employer-editor-guide">
           <p className="employer-eyebrow">Twoja oferta, krok po kroku</p>
@@ -228,7 +229,9 @@ export function EmployerJobEditor() {
         </aside>
         <form className="prototype-panel prototype-form employer-editor-sheet" onSubmit={publish}>
           <header>
-            <p className="employer-eyebrow">Krok {stage + 1} z 4</p>
+            <p className="employer-eyebrow">
+              Krok {stage + 1} z {stages.length}
+            </p>
             <h2 ref={heading} tabIndex={-1}>
               {stages[stage]}
             </h2>
@@ -391,6 +394,21 @@ export function EmployerJobEditor() {
             </div>
           )}
           {stage === 3 && (
+            <EmployerDeepeningConfiguration
+              job={{ title, summary, description }}
+              enabled={deepening.enabled}
+              aspects={deepening.aspects}
+              onEnabledChange={(enabled) => {
+                setDeepening((current) => ({ ...current, enabled }));
+                setApproved(false);
+              }}
+              onAspectsChange={(aspects) => {
+                setDeepening((current) => ({ ...current, aspects }));
+                setApproved(false);
+              }}
+            />
+          )}
+          {stage === 4 && (
             <>
               <section className="employer-preview" aria-label="Podgląd publikacji">
                 <h3>{title}</h3>
@@ -422,18 +440,29 @@ export function EmployerJobEditor() {
                   </div>
                 </dl>
               </section>
+              <section aria-label="Podgląd pogłębienia" className="employer-preview">
+                <h3>Pogłębienie: {deepening.enabled ? "włączone" : "wyłączone"}</h3>
+                {deepening.enabled &&
+                  deepening.aspects.map((aspect) => (
+                    <div key={aspect.id}>
+                      <h4>{aspect.title}</h4>
+                      <p>{aspect.explanation}</p>
+                      <blockquote>{aspect.excerpt}</blockquote>
+                    </div>
+                  ))}
+              </section>
               <label className="flex items-start gap-3">
                 <Checkbox
                   checked={approved}
                   onCheckedChange={setApproved}
                   aria-label="Zatwierdzam treść oferty"
                 />
-                <span>Zatwierdzam treść oferty do publikacji.</span>
+                <span>Zatwierdzam treść oferty i ustawienia pogłębienia do publikacji.</span>
               </label>
             </>
           )}
           {error && (
-            <p role="alert" className="error-message">
+            <p ref={errorRef} tabIndex={-1} role="alert" className="error-message">
               {error}
             </p>
           )}
@@ -443,9 +472,16 @@ export function EmployerJobEditor() {
                 Wstecz
               </Button>
             )}
-            {stage < 3 ? (
+            {stage < 4 ? (
               <Button type="submit">
-                {["Dalej: treść oferty", "Dalej: warunki", "Dalej: zatwierdzenie"][stage]}
+                {
+                  [
+                    "Dalej: treść oferty",
+                    "Dalej: warunki",
+                    "Dalej: pogłębienie",
+                    "Dalej: zatwierdzenie",
+                  ][stage]
+                }
               </Button>
             ) : (
               <Button type="submit" disabled={!approved}>
@@ -455,16 +491,6 @@ export function EmployerJobEditor() {
           </footer>
         </form>
       </div>
-      {configurationJob && (
-        <EmployerDeepeningConfiguration
-          job={configurationJob}
-          newPublication={newPublication}
-          onClose={() => {
-            setConfigurationJobId(null);
-            if (newPublication) navigate("/app/oferty");
-          }}
-        />
-      )}
     </div>
   );
 }
