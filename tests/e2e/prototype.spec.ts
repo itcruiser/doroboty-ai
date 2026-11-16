@@ -104,8 +104,15 @@ test("published job → saved offer/draft → submitted application → employer
     .fill("Szukamy osoby do badań z klientami, prototypowania i wdrażania automatyzacji obsługi.");
   await page.getByRole("button", { name: "Przygotuj opis z AI" }).click();
   await page.getByRole("button", { name: "Użyj propozycji" }).click();
+  await page.getByRole("button", { name: "Dalej: treść oferty", exact: true }).click();
+  await page.getByRole("button", { name: "Dalej: warunki", exact: true }).click();
+  await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Opublikuj ofertę" }).click();
+  await page
+    .getByRole("dialog", { name: "Tryb pogłębienia", exact: true })
+    .getByRole("button", { name: "Pomiń", exact: true })
+    .click();
   await expect(
     page.getByRole("link", { name: "Product Designer do automatyzacji", exact: true }),
   ).toBeVisible();
