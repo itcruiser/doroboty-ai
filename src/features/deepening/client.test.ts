@@ -50,3 +50,55 @@ test("question generation sends only canonical professional facts before the HTT
   });
   expect(body).not.toMatch(/Anna|example|500600700|Prowadziłam|cv/i);
 });
+
+for (const answer of [
+  "React, badania, automatyzacja",
+  "Nie prowadziłam badań z użytkownikami.",
+  "Nie wiem. Prowadziłam badania z użytkownikami.",
+  "Chyba prowadziłam badania z użytkownikami.",
+  "Anna Prywatna anna@example.test 500600700",
+  'Powiedział: "Prowadziłam badania z użytkownikami".',
+  "Być może. Prowadziłam badania z użytkownikami.",
+  "Nie wdrożyłam automatyzacji, ale znam React.",
+])
+  test(`unsafe or unsupported answer is blocked before fetch: ${answer}`, async () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      generateQuestions({
+        revision,
+        aspectIds: ["research"],
+        answer,
+        cv: "Prowadziłam badania z użytkownikami.",
+      }),
+    ).rejects.toThrow(/bezpiecznie/);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+test("client rejects duplicate or unrelated question IDs", async () => {
+  vi.stubGlobal("fetch", async () =>
+    Response.json({ questions: [{ aspectId: "other", question: "Pytanie" }] }),
+  );
+  await expect(
+    generateQuestions({
+      revision,
+      aspectIds: ["research"],
+      answer: "Prowadziłam badania z użytkownikami.",
+      cv: "",
+    }),
+  ).rejects.toThrow(/Nie udało/);
+});
+
+test("client rejects malformed aspect ordering before HTTP", async () => {
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  await expect(
+    generateQuestions({
+      revision: { ...revision, aspects: [{ ...revision.aspects[0], order: 2 }] },
+      aspectIds: ["research"],
+      answer: "Prowadziłam badania z użytkownikami.",
+      cv: "",
+    }),
+  ).rejects.toThrow();
+  expect(fetcher).not.toHaveBeenCalled();
+});

@@ -18,6 +18,7 @@ if (fs.existsSync(target) && fs.readdirSync(target).length)
 verifyPacket(root);
 const entries = [
   "src",
+  "server",
   "public",
   "tests",
   "package.json",
@@ -42,6 +43,7 @@ const entries = [
   "TODO.md",
   "README.md",
   "scripts/bootstrap",
+  "scripts/dev.mjs",
   "scripts/verify",
   "scripts/package-participant.mjs",
   "scripts/verify-participant.mjs",

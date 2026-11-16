@@ -6,5 +6,8 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: "./",
+  server: {
+    proxy: { "/api/deepening": { target: "http://127.0.0.1:3002" } },
+  },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
 });

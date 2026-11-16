@@ -46,7 +46,7 @@ const clauses: Readonly<Record<string, readonly ProfessionalFact[]>> = {
 // negation never count as evidence. This conservative synthetic-only vocabulary can
 // omit valid experience; users retain retry/skip and their original editable answer.
 const uncertainty =
-  /\b(?:nie|bez|not|never|no|maybe|perhaps|if|czy|chyba|gdyby|jeśli|jesli|może|moze|chcę|chce|planuję|planuje|zamierzam)\b|[?"„”«»]/iu;
+  /(?<![\p{L}\p{N}_])(?:nie|bez|not|never|no|maybe|perhaps|if|czy|chyba|gdyby|jeśli|jesli|może|moze|chcę|chce|planuję|planuje|zamierzam)(?![\p{L}\p{N}_])|[?"„”«»]/iu;
 export function prepareProfessionalFacts(
   text: string,
   source: "answer" | "cv",
