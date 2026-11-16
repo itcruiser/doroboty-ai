@@ -9,14 +9,21 @@ function stop() {
   stopping = true;
   for (const child of children) child.kill("SIGTERM");
 }
-const companion = spawn(process.execPath, ["--env-file-if-exists=.env.local", "server/main.ts"], {
-  cwd: root,
-  stdio: "inherit",
-});
+const companion = spawn(
+  process.execPath,
+  ["--env-file-if-exists=.env.server.local", "server/main.ts"],
+  {
+    cwd: root,
+    stdio: "inherit",
+  },
+);
 children.push(companion);
 companion.on("error", () =>
   console.error("Deepening companion unavailable. Ordinary app flows remain available."),
 );
+const browserEnvironment = { ...process.env };
+delete browserEnvironment.OPENAI_API_KEY;
+delete browserEnvironment.OPENAI_MODEL;
 const vite = spawn(
   process.execPath,
   [
@@ -28,7 +35,7 @@ const vite = spawn(
     "--strictPort",
     ...process.argv.slice(2),
   ],
-  { cwd: root, stdio: "inherit" },
+  { cwd: root, stdio: "inherit", env: browserEnvironment },
 );
 children.push(vite);
 vite.on("error", () => {

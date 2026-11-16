@@ -1,6 +1,6 @@
 import { createDeepeningServer } from "./deepening.ts";
 
-// Node loads .env.local only for this child process, never into Vite's environment.
+// Node loads .env.server.local only for this child process, never into Vite's environment.
 const server = createDeepeningServer({
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.OPENAI_MODEL,

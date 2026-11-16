@@ -56,7 +56,7 @@ test("HTTP aspects accepts approved public content and returns validated structu
   expect(await response.json()).toEqual(suggestion);
   expect(outbound).toMatchObject({
     store: false,
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     text: { format: { type: "json_schema", strict: true } },
   });
   expect(JSON.stringify(outbound)).not.toContain("server-only-secret");
@@ -138,7 +138,7 @@ test("HTTP questions reconstructs professional facts and only the requested appr
     cvFacts: ["Kandydat deklaruje wdrożenie automatyzacji."],
   });
   expect(payload.instructions).toContain("OPCJONALNEGO");
-  expect(sent).not.toMatch(/job-1|jobRevision|private-key|cv\"|profile/);
+  expect(sent).not.toMatch(/job-1|jobRevision|private-key|cv"|profile/);
 });
 
 for (const body of [
@@ -285,3 +285,27 @@ test("HTTP rejects unsuitable origins/content types, private extra fields and ov
   expect((await post(url, { ...publicJob, description: "x".repeat(110_000) })).status).toBe(413);
   expect(calls).toBe(0);
 });
+
+test("Node 24 can load the companion without a TypeScript build or runtime dependency", async () => {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const result = await promisify(execFile)(process.execPath, [
+    "--input-type=module",
+    "-e",
+    "import {createDeepeningServer} from './server/deepening.ts'; createDeepeningServer().close();",
+  ]);
+  expect(result.stderr).toBe("");
+});
+
+for (const response of [
+  new Response("x".repeat(70_000)),
+  Response.json({ status: "incomplete", output: [] }),
+  Response.json({
+    status: "completed",
+    output: [{ type: "message", content: [{ type: "output_text", text: "not JSON" }] }],
+  }),
+])
+  test("HTTP rejects oversized, incomplete or malformed provider output", async () => {
+    const url = await start({ apiKey: "secret", fetch: async () => response });
+    expect((await post(url, publicJob)).status).toBe(502);
+  });
