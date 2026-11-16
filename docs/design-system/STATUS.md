@@ -23,7 +23,7 @@ Candidate submitted detail now also uses the shared ApplicationRecord compositio
 
 ## Deepening host update
 
-The selected option 2 adds a complete staged employer editor and optional aspect dialog, a focused candidate writing sheet with compact offer context above, session-only questions and read-only submitted snapshots. Contracts are in HOST-COMPONENTS.md, IMPLEMENTATION.md, RECORDS.md and VERIFICATION.md; actual checks are recorded in `docs/tasks/deepening-implementation.md`. The source kit stays immutable. This scope does not close the unrelated company-page findings below.
+The selected option 2 adds a complete staged employer editor and optional aspect dialog, a focused candidate writing sheet with compact offer context above, session-only questions and read-only submitted snapshots. Contracts are in HOST-COMPONENTS.md, IMPLEMENTATION.md, RECORDS.md and VERIFICATION.md; actual checks are recorded in `docs/tasks/deepening-implementation.md`. The source kit stays immutable. The final deepening gate on November 16 passed 79 unit tests and 52 Chromium journeys, source-kit integrity/six kit tests, lint/types/format, baseline packet and static build. Desktop/mobile/long-content, keyboard and error-state evidence is task-scoped. This scope does not close the unrelated company-page findings below.
 
 ## Open company-page findings
 
@@ -41,6 +41,6 @@ The full company-page layout is not a canonical v1 screen. Container alignment, 
 
 ## Evidence boundaries
 
-The latest completed implementation gate, including the shared candidate record, ran 27 unit tests and 34 Chromium journeys, plus formatting, source-kit integrity/six kit tests, lint, types, packet and static build. Those counts are dated execution evidence, not a permanent acceptance guarantee or a claim about future changes. The current task records its own execution separately.
+The earlier shared candidate-record implementation gate ran 27 unit tests and 34 Chromium journeys, plus formatting, source-kit integrity/six kit tests, lint, types, packet and static build. Those counts are dated execution evidence, not a permanent acceptance guarantee or a claim about future changes. The current task records its own execution separately.
 
 A green gate does not close NH-01: the existing general accessibility journeys do not scan that company-page structure. Add targeted company accessibility/save regressions when fixing it. The older audit (`docs/tasks/poster-people-design-system-audit.md`), re-audit (`docs/tasks/poster-people-design-system-reaudit.md`) and subsequent task evidence remain historical records; do not erase them or infer a new closure from a documentation edit. Ignored artifacts support local review but are not the sole portable specification.

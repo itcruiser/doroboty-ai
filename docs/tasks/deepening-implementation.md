@@ -16,7 +16,7 @@ GitHub Issues are disabled. The user's instruction to proceed is implemented usi
 | D2     | Loopback companion, structured OpenAI boundary, positive-allowlist privacy preparation, validated client, startup/package docs | —; shared D1 contract at integration | Integrated and reviewed |
 | D3     | Complete staged employer editor and aspect approval dialog, manual/error/reorder/disable states                                | D1, D2 contracts                     | Integrated and reviewed |
 | D4     | Focused candidate form, session-only deepening, submitted candidate/employer views, browser acceptance                         | D1, D2, D3                           | Integrated and reviewed |
-| D5     | Full gate, independent Standards/Spec review and fixes, documentation/evidence                                                 | D1–D4                                | In progress             |
+| D5     | Full gate, independent Standards/Spec review and fixes, documentation/evidence                                                 | D1–D4                                | Complete and reviewed   |
 
 ## Public verification seams
 
@@ -55,3 +55,23 @@ Separate Standards/Spec reports are in `docs/tasks/deepening-review.md`: two P3 
 The first post-review full-gate attempt stopped at formatting in the new test; rerunning the formatter corrected it. The next attempt passed all non-browser checks (including 79 units) and 51 browser journeys, but the new combined scenario timed out trying to apply as Marek: the baseline already contains his application to this job. The failure artifact showed the correct existing-application guard, not a product defect. The test setup now removes only that candidate/job fixture application before any interaction, so it can exercise a future form without bypassing the production one-application rule. The separate review found no substantive blocker in the added acceptance coverage; its suggested reset-absence assertion was included.
 
 The corrected combined browser scenario passed independently (one journey, 16.6 seconds). Its first focused rerun reached a successful import but asserted a transient local status after importing a different active persona; the workspace remounted and removed that status. The assertion now checks the restored persona and polls the persisted immutable application, after proving reset removed it. No product code was changed for either test-fixture/assertion correction. Final full gate is rerun on these corrected acceptance tests.
+
+## Final verification and delivery
+
+At source/test revision `06287dd`, the final `./scripts/verify` completed successfully: formatting, source-kit integrity (67 unchanged files) and six kit tests, lint, typecheck, 79 unit tests in eight files, baseline packet (120 journeys), static build and all 52 Chromium journeys (1.4 minutes). This includes the combined configuration/snapshot/export/reset/import journey and explicit version-1 legacy imports. The remaining build warnings are the previously recorded Zod annotations and bundle size; they are nonblocking.
+
+Standards: two P3 duplication judgments, both closed. Spec: P2 import invariant and P3 behavior-register correction, both closed. Independent merge `2725f27` and the subsequent read-only review of the added acceptance tests found no substantive blockers. Implementation worktrees were removed after confirming committed source; only the integration checkout remains. All local tickets are resolved by their integration commits and this evidence; no PR, push or main-branch merge was requested.
+
+Changed surfaces:
+
+- Employer editor/configuration: `src/features/prototype/employer.tsx`, `src/features/deepening/employer-configuration.tsx`, `src/app/employer.css` and its global import.
+- Candidate editor/session/records: `candidate-apply-form.tsx`, `workspace.tsx`, `application-record.tsx`, `deepening/candidate-questions.tsx`, `deepening/use-candidate-deepening.ts`, `jobs/application-offer-preview.tsx`, `src/app/application.css`.
+- Domain/persistence: `deepening/schema.ts`, prototype model/storage/store, job types and schema/model/storage tests.
+- AI boundary/startup: deepening client/privacy/protocol, `server/`, `scripts/dev.mjs`, Vite/TypeScript/Vitest configuration and package startup script. No dependency or lockfile change.
+- Acceptance/distribution/docs: the three browser journey files, participant package allowlist, README/participant/security/architecture, BRIEF/case protocol/TODO/FEATURES and host design guides. The immutable agent kit and historical source evidence are unchanged.
+
+Startup remains Node 24, `npm ci`, `npm run dev`, then `http://127.0.0.1:3001`. Optional generation needs server-only `OPENAI_API_KEY`, supplied in the environment or ignored `.env.server.local`; `OPENAI_MODEL` is optional. The launcher starts the loopback companion on 3002. Static build/preview has no generation service and retains manual/failure-skip recovery.
+
+No live model call or model-quality evaluation was executed. Browser model responses are controlled stubs; HTTP tests replace only the external provider boundary. Positive-fact preparation intentionally rejects unsupported wording and omits unsafe CVs; it is not a real-data anonymity guarantee. Synthetic-only role simulation, fixed scores and baseline distribution remain. Local checks do not prove CI, publishing, real-data privacy or human course approval. Unrelated company-page audit findings stay open.
+
+Final `npm run package:participant -- /tmp/doroboty-deepening-participant-ready` passed pristine manifest and baseline verification. Direct inspection confirmed 228 manifest files, included companion/shared sources and design kit, and no environment files, Git history, docs/source, docs/tasks or agent-run metadata. Documentation-only completion updates passed targeted Prettier and diff checks after the final source gate.
