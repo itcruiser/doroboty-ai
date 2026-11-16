@@ -168,6 +168,17 @@ export function EmployerJobEditor() {
       verificationStatus: "employer_verified",
     });
     if (!parsed.success) {
+      if (
+        existing?.deepening.enabled &&
+        existing.deepening.aspects.some(
+          (aspect) => ![title, summary, description].join("\n\n").includes(aspect.excerpt),
+        )
+      ) {
+        setError(
+          "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: zmieniona oferta nie zawiera zatwierdzonego fragmentu. Otwórz konfigurację nad formularzem i wyłącz tryb przed zapisaniem zmienionej treści.",
+        );
+        return;
+      }
       setError(
         "Sprawdź długość i poprawność wszystkich pól oraz widełki wynagrodzenia. Wróć do odpowiedniego kroku, aby je poprawić.",
       );
@@ -234,6 +245,7 @@ export function EmployerJobEditor() {
               </Field>
               <Field label="Brief — kogo szukasz i do jakiego zadania?">
                 <Textarea
+                  aria-label="Brief — kogo szukasz i do jakiego zadania?"
                   maxLength={12000}
                   value={source}
                   onChange={(e) => {
@@ -289,6 +301,7 @@ export function EmployerJobEditor() {
               <p>To treść, którą zobaczą kandydaci. Możesz ją swobodnie zmienić.</p>
               <Field label="Krótkie podsumowanie">
                 <Textarea
+                  aria-label="Krótkie podsumowanie"
                   required
                   minLength={10}
                   maxLength={12000}
@@ -301,6 +314,7 @@ export function EmployerJobEditor() {
               </Field>
               <Field label="Opis oferty">
                 <Textarea
+                  aria-label="Opis oferty"
                   required
                   minLength={30}
                   maxLength={12000}

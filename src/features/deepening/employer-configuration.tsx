@@ -196,6 +196,7 @@ export function EmployerDeepeningConfiguration({
                 </Field>
                 <Field label={`Wyjaśnienie aspektu ${index + 1}`}>
                   <Textarea
+                    aria-label={`Wyjaśnienie aspektu ${index + 1}`}
                     maxLength={1000}
                     value={aspect.explanation}
                     onChange={(e) => edit(aspect.id, "explanation", e.target.value)}
@@ -203,6 +204,7 @@ export function EmployerDeepeningConfiguration({
                 </Field>
                 <Field label={`Fragment oferty dla aspektu ${index + 1}`}>
                   <Textarea
+                    aria-label={`Fragment oferty dla aspektu ${index + 1}`}
                     maxLength={12000}
                     value={aspect.excerpt}
                     onChange={(e) => edit(aspect.id, "excerpt", e.target.value)}

@@ -57,7 +57,7 @@
 }
 .employer-editor-sheet h2,
 .employer-deepening-dialog [data-slot="dialog-title"] {
-  font-family: var(--font-heading);
+  font-family: var(--font-display);
   font-size: 36px;
   font-weight: 400;
   line-height: 1.15;
