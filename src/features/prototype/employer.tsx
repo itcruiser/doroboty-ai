@@ -185,7 +185,11 @@ export function EmployerJobEditor() {
       return;
     }
     if (run({ type: "publish", job: parsed.data })) {
-      if (!existing) {
+      if (
+        !existing ||
+        existing.publicationStatus === "draft" ||
+        existing.publicationStatus === "review"
+      ) {
         setNewPublication(true);
         setConfigurationJobId(newId);
       } else navigate("/app/oferty");

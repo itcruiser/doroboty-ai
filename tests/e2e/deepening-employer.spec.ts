@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { initialState } from "../../src/features/prototype/model";
 import { STORAGE_KEY } from "../../src/features/prototype/storage";
 
 async function newPublication(page: Page) {
@@ -219,3 +220,48 @@ test("generation failure and invalid excerpts leave manual recovery available on
   await expect(trigger).toBeFocused();
   await expect(page.getByText("Tryb pogłębienia: wyłączony.", { exact: false })).toBeVisible();
 });
+
+for (const publicationStatus of ["draft", "review", "published", "hidden", "archived"] as const) {
+  test(`existing ${publicationStatus} job prompts only on first publication and stays published after skip`, async ({
+    page,
+  }) => {
+    const state = initialState();
+    const employer = state.people.find((person) => person.role === "employer")!;
+    state.activePersonId = employer.id;
+    const job = state.jobs.find((item) => item.companyId === employer.companyId)!;
+    job.publicationStatus = publicationStatus;
+    await page.goto("/");
+    await page.evaluate(({ key, state }) => localStorage.setItem(key, JSON.stringify(state)), {
+      key: STORAGE_KEY,
+      state,
+    });
+    await page.goto(`/#/app/oferty/${job.id}`);
+    await page.reload();
+    await page.getByRole("button", { name: "Dalej: treść oferty", exact: true }).click();
+    await page.getByRole("button", { name: "Dalej: warunki", exact: true }).click();
+    await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Zatwierdzam treść oferty" }).check();
+    await page.getByRole("button", { name: "Zapisz i opublikuj zmiany", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Tryb pogłębienia", exact: true });
+    if (publicationStatus === "draft" || publicationStatus === "review") {
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog.getByText("Oferta jest już opublikowana.", { exact: true }),
+      ).toBeVisible();
+      await dialog.getByRole("button", { name: "Pomiń", exact: true }).click();
+    } else {
+      await expect(dialog).not.toBeVisible();
+    }
+    await expect(page.getByRole("link", { name: job.title, exact: true })).toBeVisible();
+    await page.goto(`/#/oferty/${job.slug}`);
+    await expect(
+      page.getByRole("heading", { name: job.title, level: 1, exact: true }),
+    ).toBeVisible();
+    const saved = await page.evaluate(
+      ({ key, id }) =>
+        JSON.parse(localStorage.getItem(key)!).jobs.find((item: { id: string }) => item.id === id),
+      { key: STORAGE_KEY, id: job.id },
+    );
+    expect(saved).toMatchObject({ publicationStatus: "published", deepening: { enabled: false } });
+  });
+}
