@@ -47,10 +47,7 @@ const clauses: Readonly<Record<string, readonly ProfessionalFact[]>> = {
 // omit valid experience; users retain retry/skip and their original editable answer.
 const uncertainty =
   /(?<![\p{L}\p{N}_])(?:nie|bez|not|never|no|maybe|perhaps|if|czy|chyba|gdyby|jeśli|jesli|może|moze|chcę|chce|planuję|planuje|zamierzam)(?![\p{L}\p{N}_])|[?"„”«»]/iu;
-export function prepareProfessionalFacts(
-  text: string,
-  source: "answer" | "cv",
-): ProfessionalFact[] {
+export function prepareProfessionalFacts(text: string): ProfessionalFact[] {
   if (!text.trim() || text.length > 12000 || uncertainty.test(text)) return [];
   const parts = text
     .normalize("NFC")
@@ -58,7 +55,8 @@ export function prepareProfessionalFacts(
     .split(/[.!;\n]+/u)
     .map((part) => part.trim().replace(/\s+/gu, " "))
     .filter(Boolean);
-  // CV is omitted completely if any clause cannot be positively recognized.
-  if (source === "cv" && parts.some((part) => !Object.hasOwn(clauses, part))) return [];
+  // Discard the whole input if any surrounding context is unrecognized: it might
+  // negate, quote or qualify an otherwise recognizable affirmative sentence.
+  if (parts.some((part) => !Object.hasOwn(clauses, part))) return [];
   return [...new Set(parts.flatMap((part) => (Object.hasOwn(clauses, part) ? clauses[part] : [])))];
 }

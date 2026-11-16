@@ -63,12 +63,12 @@ export async function generateQuestions(
   input: { revision: DeepeningRevision; answer: string; cv: string; aspectIds: string[] },
   signal?: AbortSignal,
 ): Promise<{ questions: Array<{ aspectId: string; question: string }> }> {
-  const answerFacts = prepareProfessionalFacts(input.answer, "answer");
+  const answerFacts = prepareProfessionalFacts(input.answer);
   if (!answerFacts.length)
     throw new Error(
       "Nie można bezpiecznie przygotować odpowiedzi do pogłębienia. Edytuj odpowiedź lub wyślij bez pogłębienia.",
     );
-  const cvFacts = prepareProfessionalFacts(input.cv, "cv");
+  const cvFacts = prepareProfessionalFacts(input.cv);
   const prepared = questionRequestSchema.parse({
     revision: input.revision,
     aspectIds: input.aspectIds,
