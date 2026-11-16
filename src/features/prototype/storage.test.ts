@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { captureDeepeningRevision } from "@/features/deepening/schema";
 import { initialState, transition } from "./model";
 import {
   MAX_IMPORT_BYTES,
@@ -25,6 +26,35 @@ describe("browser persistence and recovery", () => {
     saveState(storage, s);
     expect(readState(storage).state).toEqual(s);
     expect(parseState(serializeState(s))).toEqual(s);
+  });
+  it("rejects an enabled revision-zero import before candidate deepening entry", () => {
+    const state = transition(initialState(), {
+      type: "select_person",
+      id: "employer-brightlabs",
+    });
+    const job = state.jobs[0];
+    const configured = transition(state, {
+      type: "configure_deepening",
+      jobId: job.id,
+      configuration: {
+        enabled: true,
+        revision: 0,
+        aspects: [
+          {
+            id: "aspect-research",
+            title: "Badania",
+            explanation: "Opowiedz o swoim wkładzie.",
+            excerpt: job.summary,
+            author: "employer",
+            order: 0,
+          },
+        ],
+      },
+    });
+    const imported = parseState(serializeState(configured));
+    expect(captureDeepeningRevision(imported.jobs[0]).aspectRevision).toBe(1);
+    configured.jobs[0].deepening.revision = 0;
+    expect(() => parseState(JSON.stringify(configured))).toThrow("Dotychczasowy stan");
   });
   it("migrates version-1 jobs and preserves applications and legacy draft metadata", () => {
     const legacy = JSON.parse(serializeState(initialState()));

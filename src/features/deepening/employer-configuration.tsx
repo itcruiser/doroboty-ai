@@ -88,7 +88,7 @@ export function EmployerDeepeningConfiguration({
   function save(enabled: boolean) {
     const configuration = {
       enabled,
-      revision: job.deepening?.revision ?? 0,
+      revision: (job.deepening?.revision ?? 0) + 1,
       aspects: enabled
         ? aspects.map((item, order) => ({ ...item, order }))
         : (job.deepening?.aspects ?? []),

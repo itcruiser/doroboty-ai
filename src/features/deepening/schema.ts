@@ -36,6 +36,10 @@ export const configurationSchema = z
   .refine((configuration) => !configuration.enabled || configuration.aspects.length > 0, {
     path: ["aspects"],
     message: "Enabled deepening requires one to three aspects",
+  })
+  .refine((configuration) => !configuration.enabled || configuration.revision > 0, {
+    path: ["revision"],
+    message: "Enabled deepening requires a positive configuration revision",
   });
 export const revisionSchema = z
   .object({
