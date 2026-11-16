@@ -369,7 +369,7 @@ for (const width of [1440, 375]) {
     await page.getByLabel("Importuj plik scenariusza").setInputFiles({
       name: "legacy-draft.json",
       mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(legacy)),
+      buffer: Buffer.from(JSON.stringify({ ...legacy, version: 1 })),
     });
     await page.getByRole("button", { name: "Importuj", exact: true }).click();
     await page.goto(`/#/aplikuj/${job.slug}`);

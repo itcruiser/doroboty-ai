@@ -20,4 +20,10 @@ No additional substantive omissions or scope creep found. The complete staged em
 
 Evidence limit: optional-expansion wording in the browser journey is supplied by a stub; the HTTP test checks the provider instruction. These establish UI/transport and prompt intent, not live model compliance or model quality. No real model call was made.
 
-Review summary: Standards 2 findings, worst P3 judgment call; Spec 2 findings, worst P2 import invariant. All four are assigned to one fresh isolated fix implementer; closure is pending independent merge review and the final gate.
+Review summary: Standards 2 findings, worst P3 judgment call; Spec 2 findings, worst P2 import invariant. All four were fixed by one fresh isolated implementer (`a01667f`, `30d653d`, tip `6b19d73`) and independently reviewed/merged at `2725f27`. The merger found no substantive blocker and confirmed all four closed. Postmerge schema/model/storage checks passed 25/25; final full-gate evidence belongs in the implementation record.
+
+## Closure details
+
+The import regression first failed because parseState accepted enabled revision zero (one failure, ten passes); after the conditional positive-revision rule, 25 focused schema/model/storage tests passed. Employer form validation uses the prospective next revision so first enable remains usable; the domain remains the revision owner. Disabled/legacy zero is preserved. The exact-excerpt helper is shared while each UI/domain/import/HTTP boundary still performs its own validation. The preview retains default/compact placement with one facts/summary composition. The register retains stable IDs in one table and accurately describes generation-only server boundaries.
+
+The implementer ran all 79 units, lint, types, formatting, build and four focused browser journeys. The merger reran only 25 focused units and diff checks, not the full gate. No additional source defect was found. Root then added direct browser coverage for snapshot stability after configuration edits/disable, future form revisions, version-2 export/reset/import and explicit version-1 legacy imports; these additions do not change product behavior.

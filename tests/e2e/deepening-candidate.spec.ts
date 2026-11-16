@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
 import { initialState } from "../../src/features/prototype/model";
 import { STORAGE_KEY } from "../../src/features/prototype/storage";
@@ -218,6 +219,94 @@ test("decided questions survive edits; one immutable application contains final 
     page.getByRole("region", { name: "Pogłębienie", exact: true }).getByRole("textbox"),
   ).toHaveCount(0);
   await expect(page.getByText("Match Score: 84%", { exact: true })).toBeVisible();
+});
+
+test("submitted snapshots survive later configuration and export/reset/import; future forms use the new revision", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const requests = await questions(page);
+  const job = await seed(page, true);
+  await enter(page);
+  for (let index = 0; index < 3; index++)
+    await aspect(page, index).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
+  await page.getByRole("button", { name: "Wyślij aplikację", exact: true }).click();
+  await expect(page.getByText("Aplikacja została wysłana.", { exact: false })).toBeVisible();
+  const original = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
+    STORAGE_KEY,
+  );
+  const choose = async (name: string) => {
+    await page.goto("/#/auth/sign-in");
+    await page.getByRole("button", { name: `Wejdź jako ${name}`, exact: true }).click();
+  };
+  await choose("Karolina Wiśniewska");
+  await page.goto(`/#/app/oferty/${job.id}`);
+  await page.getByRole("button", { name: "Konfiguruj pogłębienie", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Tryb pogłębienia", exact: true });
+  await dialog.getByLabel("Nazwa aspektu 1", { exact: true }).fill("Nowy zakres badań");
+  await dialog.getByRole("button", { name: "Zapisz pogłębienie", exact: true }).click();
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
+      STORAGE_KEY,
+    ),
+  ).toEqual(original);
+  await choose("Marek Nowak");
+  await page.goto(`/#/aplikuj/${job.slug}`);
+  await enter(page);
+  await expect(page.getByRole("region", { name: "Nowy zakres badań", exact: true })).toBeVisible();
+  expect(requests.at(-1)?.revision).toMatchObject({ aspectRevision: 3 });
+  await page.goto("/#/app/settings");
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Eksportuj dane", exact: true }).click();
+  const download = await downloadEvent;
+  const exported = await readFile((await download.path())!, "utf8");
+  const exportedState = JSON.parse(exported);
+  expect(exportedState.version).toBe(2);
+  expect(exportedState.applications.at(-1)).toEqual(original);
+  expect(exportedState.drafts).toEqual([]);
+  await page.getByRole("button", { name: "Resetuj scenariusz", exact: true }).click();
+  await page.getByRole("button", { name: "Resetuj", exact: true }).click();
+  await choose("Karolina Wiśniewska");
+  await page.goto("/#/app/settings");
+  await page
+    .getByLabel("Importuj plik scenariusza")
+    .setInputFiles({
+      name: "deepening-v2.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(exported),
+    });
+  await page.getByRole("button", { name: "Importuj", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Dane zostały zaimportowane");
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
+      STORAGE_KEY,
+    ),
+  ).toEqual(original);
+  expect(original.sourceNotes).toBe("Legacy private source notes");
+  expect(original.generatedAnswer).toBe("Legacy unapproved generation");
+  await choose("Anna Kowalska");
+  await page.goto(`/#/app/aplikacje/${original.id}`);
+  const submitted = page.getByRole("region", { name: "Pogłębienie", exact: true });
+  await expect(submitted).toContainText(aspectTitles[0]);
+  await expect(submitted).not.toContainText("Nowy zakres badań");
+  await choose("Karolina Wiśniewska");
+  await page.goto(`/#/app/oferty/${job.id}`);
+  await page.getByRole("button", { name: "Konfiguruj pogłębienie", exact: true }).click();
+  await dialog.getByRole("button", { name: "Wyłącz pogłębienie", exact: true }).click();
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
+      STORAGE_KEY,
+    ),
+  ).toEqual(original);
+  await choose("Marek Nowak");
+  await page.goto(`/#/aplikuj/${job.slug}`);
+  await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Wyślij aplikację", exact: true })).toBeVisible();
+  await expect(page.getByText("2. Pogłębienie", { exact: true })).toHaveCount(0);
 });
 
 test("failed replacement preserves the previous question and decisions", async ({ page }) => {
