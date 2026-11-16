@@ -268,15 +268,21 @@ test("submitted snapshots survive later configuration and export/reset/import; f
   expect(exportedState.drafts).toEqual([]);
   await page.getByRole("button", { name: "Resetuj scenariusz", exact: true }).click();
   await page.getByRole("button", { name: "Resetuj", exact: true }).click();
+  const resetState = await page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key)!),
+    STORAGE_KEY,
+  );
+  expect(resetState.activePersonId).toBeNull();
+  expect(
+    resetState.applications.some((application: { id: string }) => application.id === original.id),
+  ).toBe(false);
   await choose("Karolina Wiśniewska");
   await page.goto("/#/app/settings");
-  await page
-    .getByLabel("Importuj plik scenariusza")
-    .setInputFiles({
-      name: "deepening-v2.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(exported),
-    });
+  await page.getByLabel("Importuj plik scenariusza").setInputFiles({
+    name: "deepening-v2.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(exported),
+  });
   await page.getByRole("button", { name: "Importuj", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Dane zostały zaimportowane");
   expect(
