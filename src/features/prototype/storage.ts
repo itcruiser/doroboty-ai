@@ -1,4 +1,4 @@
-import { initialState, stateSchema, type State } from "./model";
+import { initialState, stateSchema, transition, type State } from "./model";
 export const STORAGE_KEY = "doroboty.prototype.v1";
 export const MAX_IMPORT_BYTES = 2_000_000;
 export interface StoragePort {
@@ -9,7 +9,23 @@ export function parseState(raw: string): State {
   if (new TextEncoder().encode(raw).length > MAX_IMPORT_BYTES)
     throw new Error("Plik jest za duży (maksymalnie 2 MB).");
   try {
-    return stateSchema.parse(JSON.parse(raw));
+    const input = JSON.parse(raw);
+    if (input?.version === 1) {
+      input.version = 2;
+      if (Array.isArray(input.jobs))
+        input.jobs = input.jobs.map((job: Record<string, unknown>) => ({
+          ...job,
+          revision: 1,
+          deepening: { enabled: false, revision: 0, aspects: [] },
+        }));
+      if (Array.isArray(input.applications))
+        input.applications = input.applications.map((application: Record<string, unknown>) => {
+          const legacy = { ...application };
+          delete legacy.deepening;
+          return legacy;
+        });
+    }
+    return stateSchema.parse(input);
   } catch {
     throw new Error(
       "Nieprawidłowy plik lub nieobsługiwana wersja danych. Dotychczasowy stan pozostaje bez zmian.",
@@ -62,4 +78,43 @@ export function saveState(storage: StoragePort | null, state: State) {
       "Nie udało się zapisać zmian w przeglądarce. Wyeksportuj dane przed zamknięciem strony.",
     );
   }
+}
+
+/** Return only after any saved draft has been durably removed. */
+export function enterDeepeningState(
+  storage: StoragePort | null,
+  state: State,
+  jobId: string,
+  options: { blocked?: boolean; persistedDraft?: boolean } = {},
+): { state: State; persisted: boolean } {
+  if (options.blocked)
+    throw new Error(
+      "Nie można usunąć szkicu z nieczytelnego zapisu. Pobierz dane w ustawieniach, a następnie zaimportuj poprawny plik lub zresetuj scenariusz.",
+    );
+  const next = transition(state, { type: "drop_draft", jobId });
+  if (!storage) {
+    if (options.persistedDraft)
+      throw new Error(
+        "Nie udało się usunąć zapisanego szkicu. Przywróć dostęp do zapisu lub zresetuj scenariusz w ustawieniach przed przejściem do pogłębienia.",
+      );
+    return { state: next, persisted: false };
+  }
+  let persisted: State | null;
+  try {
+    const raw = storage.getItem(STORAGE_KEY);
+    persisted = raw ? parseState(raw) : null;
+  } catch {
+    throw new Error(
+      "Nie można sprawdzić i usunąć zapisanego szkicu. Pobierz dane w ustawieniach, a następnie zaimportuj poprawny plik lub zresetuj scenariusz.",
+    );
+  }
+  if (
+    persisted?.drafts.some(
+      (draft) => draft.candidateId === state.activePersonId && draft.jobId === jobId,
+    )
+  ) {
+    saveState(storage, next);
+    return { state: next, persisted: true };
+  }
+  return { state: next, persisted: false };
 }

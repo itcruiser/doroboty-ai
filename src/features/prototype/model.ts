@@ -1,6 +1,12 @@
 import { z } from "zod";
 import marketplace from "./data/marketplace.json" with { type: "json" };
 import people from "./data/people.json" with { type: "json" };
+import {
+  configurationSchema,
+  snapshotSchema,
+  type DeepeningConfiguration,
+  type DeepeningSnapshot,
+} from "@/features/deepening/schema";
 import type { JobWithCompany } from "@/features/jobs/types";
 
 const id = z
@@ -51,6 +57,8 @@ export const jobSchema = z
     publishedAt: z.iso.datetime(),
     expiryAt: z.iso.datetime(),
     verificationStatus: z.enum(["unverified", "editorial", "employer_verified"]),
+    revision: z.number().int().positive().default(1),
+    deepening: configurationSchema.default({ enabled: false, revision: 0, aspects: [] }),
     sourceBrief: text.optional(),
     generatedDescription: text.optional(),
   })
@@ -58,6 +66,18 @@ export const jobSchema = z
     (job) =>
       job.salaryMin === undefined || job.salaryMax === undefined || job.salaryMin <= job.salaryMax,
     { path: ["salaryMax"], message: "Salary maximum must not be below minimum" },
+  )
+  .refine(
+    (job) =>
+      !job.deepening.enabled ||
+      job.deepening.aspects.every((aspect) =>
+        [job.title, job.summary, job.description].join("\n\n").includes(aspect.excerpt),
+      ),
+    {
+      path: ["deepening"],
+      message:
+        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
+    },
   );
 export const profileSchema = z.object({
   name: shortText,
@@ -118,6 +138,7 @@ const applicationSchema = z.object({
   score: z.number().int().min(0).max(100),
   summary: text,
   stage: z.enum(stages),
+  deepening: snapshotSchema.optional(),
   events: z
     .array(z.object({ stage: z.enum(stages), at: z.iso.datetime(), note: text }))
     .min(1)
@@ -132,7 +153,7 @@ const draftSchema = z.object({
 });
 export const stateSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     activePersonId: id.nullable(),
     companies: z.array(companySchema).min(1).max(200),
     jobs: z.array(jobSchema).min(1).max(1000),
@@ -169,6 +190,18 @@ export const stateSchema = z
         keys.has(key)
       )
         problem("Invalid application reference");
+      if (a.deepening) {
+        const revision = a.deepening.revision;
+        const job = jobs.get(a.jobId);
+        if (
+          revision.jobId !== a.jobId ||
+          !job ||
+          revision.jobRevision > job.revision ||
+          revision.aspectRevision > job.deepening.revision ||
+          a.jobTitle !== revision.title
+        )
+          problem("Invalid deepening revision reference");
+      }
       keys.add(key);
       if (a.events[0]?.stage !== "submitted" || a.events.at(-1)?.stage !== a.stage)
         problem("Invalid application history");
@@ -201,6 +234,7 @@ export type Action =
   | { type: "select_person"; id: string | null }
   | { type: "profile"; value: z.infer<typeof profileSchema> }
   | { type: "toggle_saved"; jobId: string }
+  | { type: "drop_draft"; jobId: string }
   | { type: "draft"; jobId: string; notes: string; generated: string; answer: string }
   | {
       type: "submit";
@@ -209,15 +243,18 @@ export type Action =
       generated: string;
       answer: string;
       consent: boolean;
+      deepening?: DeepeningSnapshot;
+      submissionIdentity?: { name: string; cv: string };
     }
   | { type: "stage"; applicationId: string; stage: Stage; note: string }
   | { type: "withdraw"; applicationId: string }
-  | { type: "publish"; job: z.infer<typeof jobSchema> }
+  | { type: "configure_deepening"; jobId: string; configuration: DeepeningConfiguration }
+  | { type: "publish"; job: z.input<typeof jobSchema> }
   | { type: "company"; name: string; description: string };
 
 export function initialState(): State {
   const state = stateSchema.parse({
-    version: 1,
+    version: 2,
     activePersonId: null,
     ...marketplace,
     people,
@@ -286,6 +323,12 @@ export function transition(
     const index = s.saved.findIndex((x) => x.candidateId === p.id && x.jobId === action.jobId);
     if (index >= 0) s.saved.splice(index, 1);
     else s.saved.push({ candidateId: p.id, jobId: action.jobId });
+  } else if (action.type === "drop_draft") {
+    const p = candidate();
+    if (!s.jobs.some((job) => job.id === action.jobId)) fail("Nie znaleziono oferty.");
+    s.drafts = s.drafts.filter(
+      (draft) => !(draft.candidateId === p.id && draft.jobId === action.jobId),
+    );
   } else if (action.type === "draft") {
     const p = candidate();
     const draft = draftSchema.parse({ candidateId: p.id, ...action });
@@ -295,18 +338,31 @@ export function transition(
     const p = candidate();
     const job = s.jobs.find((x) => x.id === action.jobId && x.publicationStatus === "published");
     if (!job) return fail("Oferta nie jest dostępna.");
+    if (job.deepening.enabled && !action.deepening)
+      fail("Ukończ krok pogłębienia lub wybierz wysłanie bez pogłębienia po błędzie generowania.");
     if (!action.consent) fail("Zatwierdź treść i zgodę na przesłanie aplikacji.");
     if (s.applications.some((x) => x.candidateId === p.id && x.jobId === job.id))
       fail("Aplikacja na tę ofertę została już wysłana.");
+    const deepening = action.deepening ? snapshotSchema.parse(action.deepening) : undefined;
+    if (
+      deepening &&
+      (deepening.revision.jobId !== job.id ||
+        deepening.revision.jobRevision > job.revision ||
+        deepening.revision.aspectRevision > job.deepening.revision)
+    )
+      fail(
+        "Migawka pogłębienia nie należy do dostępnej wersji tej oferty. Rozpocznij aplikację ponownie.",
+      );
     s.applications.push(
       applicationSchema.parse({
         id: newId,
         candidateId: p.id,
         jobId: job.id,
         companyId: job.companyId,
-        jobTitle: job.title,
-        candidateName: p.name,
-        cv: p.cv,
+        jobTitle: deepening?.revision.title ?? job.title,
+        candidateName: action.submissionIdentity?.name ?? p.name,
+        cv: action.submissionIdentity?.cv ?? p.cv,
+        deepening,
         answer: action.answer,
         sourceNotes: action.notes,
         generatedAnswer: action.generated,
@@ -335,9 +391,45 @@ export function transition(
     }
     application.stage = stage;
     application.events.push({ stage, at: now, note: action.type === "stage" ? action.note : "" });
+  } else if (action.type === "configure_deepening") {
+    const p = employer();
+    const job = s.jobs.find((item) => item.id === action.jobId);
+    if (!job || job.companyId !== p.companyId) return fail("Wybierz ofertę własnej firmy.");
+    job.deepening = configurationSchema.parse({
+      ...action.configuration,
+      revision: job.deepening.revision + 1,
+    });
+    if (
+      job.deepening.enabled &&
+      job.deepening.aspects.some(
+        (aspect) =>
+          ![job.title, job.summary, job.description].join("\n\n").includes(aspect.excerpt),
+      )
+    )
+      fail(
+        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
+      );
+    jobSchema.parse(job);
   } else if (action.type === "publish") {
     const p = employer();
-    const job = jobSchema.parse(action.job);
+    const existing = s.jobs.find((item) => item.id === action.job.id);
+    if (
+      existing?.deepening.enabled &&
+      existing.deepening.aspects.some(
+        (aspect) =>
+          ![action.job.title, action.job.summary, action.job.description]
+            .join("\n\n")
+            .includes(aspect.excerpt),
+      )
+    )
+      fail(
+        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
+      );
+    const job = jobSchema.parse({
+      ...action.job,
+      revision: existing ? existing.revision + 1 : 1,
+      deepening: existing?.deepening ?? { enabled: false, revision: 0, aspects: [] },
+    });
     if (job.companyId !== p.companyId) fail("Wybierz ofertę własnej firmy.");
     const index = s.jobs.findIndex((x) => x.id === job.id);
     if (index >= 0) {
