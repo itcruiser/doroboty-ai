@@ -3,6 +3,7 @@ import marketplace from "./data/marketplace.json" with { type: "json" };
 import people from "./data/people.json" with { type: "json" };
 import {
   configurationSchema,
+  hasSupportingExcerpts,
   snapshotSchema,
   type DeepeningConfiguration,
   type DeepeningSnapshot,
@@ -67,18 +68,11 @@ export const jobSchema = z
       job.salaryMin === undefined || job.salaryMax === undefined || job.salaryMin <= job.salaryMax,
     { path: ["salaryMax"], message: "Salary maximum must not be below minimum" },
   )
-  .refine(
-    (job) =>
-      !job.deepening.enabled ||
-      job.deepening.aspects.every((aspect) =>
-        [job.title, job.summary, job.description].join("\n\n").includes(aspect.excerpt),
-      ),
-    {
-      path: ["deepening"],
-      message:
-        "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
-    },
-  );
+  .refine((job) => !job.deepening.enabled || hasSupportingExcerpts(job, job.deepening.aspects), {
+    path: ["deepening"],
+    message:
+      "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
+  });
 export const profileSchema = z.object({
   name: shortText,
   headline: shortText,
@@ -399,13 +393,7 @@ export function transition(
       ...action.configuration,
       revision: job.deepening.revision + 1,
     });
-    if (
-      job.deepening.enabled &&
-      job.deepening.aspects.some(
-        (aspect) =>
-          ![job.title, job.summary, job.description].join("\n\n").includes(aspect.excerpt),
-      )
-    )
+    if (job.deepening.enabled && !hasSupportingExcerpts(job, job.deepening.aspects))
       fail(
         "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",
       );
@@ -415,12 +403,7 @@ export function transition(
     const existing = s.jobs.find((item) => item.id === action.job.id);
     if (
       existing?.deepening.enabled &&
-      existing.deepening.aspects.some(
-        (aspect) =>
-          ![action.job.title, action.job.summary, action.job.description]
-            .join("\n\n")
-            .includes(aspect.excerpt),
-      )
+      !hasSupportingExcerpts(action.job, existing.deepening.aspects)
     )
       fail(
         "Skonfiguruj ponownie lub wyłącz tryb pogłębienia: oferta nie zawiera zatwierdzonego cytatu.",

@@ -12,6 +12,25 @@ export function ApplicationOfferPreview({
   job: JobWithCompany;
   compact?: boolean;
 }) {
+  const factsAndSummary = (
+    <>
+      <dl className="application-offer-facts">
+        <div>
+          <dt>Tryb pracy</dt>
+          <dd>{remoteLabels[job.remoteStatus]}</dd>
+        </div>
+        <div>
+          <dt>Doświadczenie</dt>
+          <dd>{seniorityLabels[job.seniority]}</dd>
+        </div>
+        <div>
+          <dt>Kategoria</dt>
+          <dd>{categoryLabels[job.category]}</dd>
+        </div>
+      </dl>
+      <p className="application-offer-summary">{job.summary}</p>
+    </>
+  );
   return (
     <aside
       className={`record-sheet application-offer${compact ? " application-offer-compact" : ""}`}
@@ -32,49 +51,13 @@ export function ApplicationOfferPreview({
       <div className="application-pay">
         <SalaryFact job={job} />
       </div>
-      {!compact && (
-        <>
-          <dl className="application-offer-facts">
-            <div>
-              <dt>Tryb pracy</dt>
-              <dd>{remoteLabels[job.remoteStatus]}</dd>
-            </div>
-            <div>
-              <dt>Doświadczenie</dt>
-              <dd>{seniorityLabels[job.seniority]}</dd>
-            </div>
-            <div>
-              <dt>Kategoria</dt>
-              <dd>{categoryLabels[job.category]}</dd>
-            </div>
-          </dl>
-          <p className="application-offer-summary">{job.summary}</p>
-        </>
-      )}
+      {!compact && factsAndSummary}
       <details className="application-description">
         <summary>
           Pełny opis oferty
           <ChevronDown size={16} aria-hidden="true" />
         </summary>
-        {compact && (
-          <>
-            <dl className="application-offer-facts">
-              <div>
-                <dt>Tryb pracy</dt>
-                <dd>{remoteLabels[job.remoteStatus]}</dd>
-              </div>
-              <div>
-                <dt>Doświadczenie</dt>
-                <dd>{seniorityLabels[job.seniority]}</dd>
-              </div>
-              <div>
-                <dt>Kategoria</dt>
-                <dd>{categoryLabels[job.category]}</dd>
-              </div>
-            </dl>
-            <p className="application-offer-summary">{job.summary}</p>
-          </>
-        )}
+        {compact && factsAndSummary}
         <JobDescription description={job.description} compact />
       </details>
     </aside>
