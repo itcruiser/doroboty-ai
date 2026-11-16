@@ -266,6 +266,7 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
               {deepening.active && !deepening.session?.responses.length && !!deepening.error && (
                 <Button
                   type="button"
+                  variant={deepening.requiresPreparation ? "outline" : "default"}
                   disabled={submitted || deepening.pending}
                   onClick={() => send(true)}
                 >

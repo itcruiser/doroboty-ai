@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { generateQuestions } from "./client";
+import { AnswerPreparationError, generateQuestions } from "./client";
+import type { ProfessionalFact } from "./privacy";
 import type { DeepeningRevision } from "./schema";
 
 const revision: DeepeningRevision = {
@@ -73,7 +74,7 @@ for (const answer of [
         answer,
         cv: "Prowadziłam badania z użytkownikami.",
       }),
-    ).rejects.toThrow(/bezpiecznie/);
+    ).rejects.toBeInstanceOf(AnswerPreparationError);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -164,3 +165,44 @@ test("client refuses an oversized HTTP response", async () => {
     }),
   ).rejects.toThrow(/Nie udało/);
 });
+
+test("explicitly approved professional facts recover unsupported prose without transmitting it", async () => {
+  let body = "";
+  const fetcher = vi.fn(async (_url, init: RequestInit) => {
+    body = String(init.body);
+    return Response.json({
+      questions: [{ aspectId: "research", question: "Jaki był Twój wkład w badania?" }],
+    });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await generateQuestions({
+    revision,
+    aspectIds: ["research"],
+    answer: "Anna Prywatna — mam doświadczenie w badaniu potrzeb i automatyzacji procesów.",
+    cv: "Anna Prywatna, telefon 500600700",
+    approvedAnswerFacts: ["user_research", "automation_delivery"],
+  });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(body)).toEqual({
+    revision,
+    aspectIds: ["research"],
+    answerFacts: ["user_research", "automation_delivery"],
+  });
+  expect(body).not.toMatch(/Anna|Prywatna|500600700|doświadczenie|cvFacts/);
+});
+
+for (const facts of [[], ["user_research", "user_research"], ["unknown-private-value"]])
+  test(`invalid approved facts never cross HTTP: ${JSON.stringify(facts)}`, async () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      generateQuestions({
+        revision,
+        aspectIds: ["research"],
+        answer: "Dowolny opis doświadczenia zawodowego.",
+        cv: "",
+        approvedAnswerFacts: facts as ProfessionalFact[],
+      }),
+    ).rejects.toThrow();
+    expect(fetcher).not.toHaveBeenCalled();
+  });

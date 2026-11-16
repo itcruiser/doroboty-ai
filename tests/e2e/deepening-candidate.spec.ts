@@ -400,6 +400,94 @@ test("unsupported identifying answer is blocked before any generation request", 
   expect(calls).toBe(0);
 });
 
+for (const width of [1280, 320]) {
+  test(`candidate confirms safe facts without rewriting the answer; edits invalidate confirmation at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const requests = await questions(page);
+    await seed(page);
+    const originalAnswer = "Mam doświadczenie w badaniu potrzeb i usprawnianiu procesów.";
+    await page.getByLabel("Dlaczego pasujesz do tej roli?").fill(originalAnswer);
+    await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
+    await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
+    const facts = page.getByRole("group", { name: "Informacje do pytań", exact: true });
+    await expect(facts).toBeVisible();
+    expect(requests).toHaveLength(0);
+    await expect(facts.getByRole("checkbox", { checked: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    const accessibility = await new AxeBuilder({ page }).include(".application-page").analyze();
+    expect(accessibility.violations).toEqual([]);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/deepening/preparation-${width}.png`, fullPage: true });
+    const confirm = page.getByRole("button", {
+      name: "Potwierdź i przygotuj pytania",
+      exact: true,
+    });
+    await expect(confirm).toBeDisabled();
+    await facts.getByRole("checkbox", { name: "Badania z użytkownikami", exact: true }).focus();
+    await page.keyboard.press("Space");
+    expect(requests).toHaveLength(0);
+    await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
+    await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
+    await expect(facts).toBeVisible();
+    expect(requests).toHaveLength(0);
+    await confirm.click();
+    await expect(aspect(page, 0)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Pogłębienie Twojej aplikacji", exact: true }),
+    ).toBeFocused();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ answerFacts: ["user_research"] });
+    expect(JSON.stringify(requests)).not.toContain(originalAnswer);
+    await aspect(page, 0).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
+    const decided = await aspect(page, 0).textContent();
+    await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
+    await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveValue(originalAnswer);
+    await page
+      .getByLabel("Dlaczego pasujesz do tej roli?")
+      .fill("Mam doświadczenie w prowadzeniu zespołów projektowych i analizie potrzeb.");
+    await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
+    await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
+    await expect(facts).toBeVisible();
+    await expect(facts.getByRole("checkbox", { checked: true })).toHaveCount(0);
+    expect(requests).toHaveLength(1);
+    await expect(aspect(page, 0)).toHaveText(decided!);
+    await facts.getByRole("checkbox", { name: "Prowadzenie projektów", exact: true }).check();
+    await confirm.click();
+    await expect(facts).toHaveCount(0);
+    await expect.poll(() => requests.length).toBe(2);
+    expect(requests[1]).toMatchObject({
+      aspectIds: ["aspect-1", "aspect-2"],
+      answerFacts: ["project_delivery"],
+    });
+    const saved = await page.evaluate((key) => localStorage.getItem(key)!, STORAGE_KEY);
+    expect(saved).not.toContain("approvedAnswerFacts");
+    expect(saved).not.toContain("project_delivery");
+    if (width === 1280) {
+      for (const index of [1, 2])
+        await aspect(page, index).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
+      await page.getByRole("button", { name: "Wyślij aplikację", exact: true }).click();
+      await expect(page.getByText("Aplikacja została wysłana.", { exact: false })).toBeVisible();
+      const application = await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
+        STORAGE_KEY,
+      );
+      expect(application.answer).toBe(
+        "Mam doświadczenie w prowadzeniu zespołów projektowych i analizie potrzeb.",
+      );
+      expect(application.deepening.status).toBe("completed");
+      expect(JSON.stringify(application)).not.toMatch(/approvedAnswerFacts|project_delivery/);
+    } else {
+      await page.reload();
+      await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveValue("");
+      await expect(facts).toHaveCount(0);
+    }
+  });
+}
+
 for (const width of [1280, 390, 320]) {
   test(`focused application and long deepening questions support keyboard and reflow at ${width}px`, async ({
     page,

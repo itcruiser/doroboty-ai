@@ -1,6 +1,6 @@
 import type { Job } from "../jobs/types";
 import type { DeepeningRevision } from "./schema";
-import { prepareProfessionalFacts } from "./privacy";
+import { prepareProfessionalFacts, type ProfessionalFact } from "./privacy";
 import {
   CLIENT_TIMEOUT_MS,
   MAX_REQUEST_BYTES,
@@ -13,6 +13,13 @@ import {
 
 const unavailable =
   "Nie udało się wygenerować pogłębienia. Spróbuj ponownie lub wyślij bez pogłębienia.";
+export class AnswerPreparationError extends Error {
+  constructor() {
+    super(
+      "Potwierdź informacje zawodowe, z których przygotujemy pytania. Twoja odpowiedź pozostaje bez zmian.",
+    );
+  }
+}
 async function request(route: string, body: unknown, signal?: AbortSignal) {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -60,14 +67,17 @@ export async function suggestAspects(
   }
 }
 export async function generateQuestions(
-  input: { revision: DeepeningRevision; answer: string; cv: string; aspectIds: string[] },
+  input: {
+    revision: DeepeningRevision;
+    answer: string;
+    cv: string;
+    aspectIds: string[];
+    approvedAnswerFacts?: ProfessionalFact[];
+  },
   signal?: AbortSignal,
 ): Promise<{ questions: Array<{ aspectId: string; question: string }> }> {
-  const answerFacts = prepareProfessionalFacts(input.answer);
-  if (!answerFacts.length)
-    throw new Error(
-      "Nie można bezpiecznie przygotować odpowiedzi do pogłębienia. Edytuj odpowiedź lub wyślij bez pogłębienia.",
-    );
+  const answerFacts = input.approvedAnswerFacts ?? prepareProfessionalFacts(input.answer);
+  if (!answerFacts.length) throw new AnswerPreparationError();
   const cvFacts = prepareProfessionalFacts(input.cv);
   const prepared = questionRequestSchema.parse({
     revision: input.revision,
