@@ -10,13 +10,13 @@ Integration branch: `codex/tryb-poglebienia`. Fixed review base: `2013e95c3ccda2
 
 GitHub Issues are disabled. The user's instruction to proceed is implemented using this local ticket graph rather than waiting for tracker provisioning. Each implementation ticket uses an isolated worktree; no two agents write the integration checkout. Tickets are resolved by their integration commits and evidence below. No external issue, review or message is posted.
 
-| Ticket | Scope                                                                                                                          | Depends on                           | Status                         |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ------------------------------ |
-| D1     | Plain shared schemas, revisions/snapshots, domain operations, v1 migration and safe persisted-draft removal                    | —                                    | Ready                          |
-| D2     | Loopback companion, structured OpenAI boundary, positive-allowlist privacy preparation, validated client, startup/package docs | —; shared D1 contract at integration | Ready                          |
-| D3     | Complete staged employer editor and aspect approval dialog, manual/error/reorder/disable states                                | D1, D2 contracts                     | Ready for isolated preparation |
-| D4     | Focused candidate form, session-only deepening, submitted candidate/employer views, browser acceptance                         | D1, D2, D3                           | Blocked                        |
-| D5     | Full gate, independent Standards/Spec review and fixes, documentation/evidence                                                 | D1–D4                                | Blocked                        |
+| Ticket | Scope                                                                                                                          | Depends on                           | Status                      |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | --------------------------- |
+| D1     | Plain shared schemas, revisions/snapshots, domain operations, v1 migration and safe persisted-draft removal                    | —                                    | Integrated and reviewed     |
+| D2     | Loopback companion, structured OpenAI boundary, positive-allowlist privacy preparation, validated client, startup/package docs | —; shared D1 contract at integration | In progress                 |
+| D3     | Complete staged employer editor and aspect approval dialog, manual/error/reorder/disable states                                | D1, D2 contracts                     | Awaiting independent review |
+| D4     | Focused candidate form, session-only deepening, submitted candidate/employer views, browser acceptance                         | D1, D2, D3                           | In progress                 |
+| D5     | Full gate, independent Standards/Spec review and fixes, documentation/evidence                                                 | D1–D4                                | Blocked                     |
 
 ## Public verification seams
 
@@ -27,3 +27,11 @@ The specification explicitly requests browser acceptance scenarios and shared Zo
 The ten scenarios in the specification are the acceptance criteria, including one final application only, decided-question preservation, complete unfinished-form loss after entering step 2, generation-failure skip, revision isolation, sanitised outbound input, v1 import/recovery, fixed scenario scores and participant package boundaries. Verify desktop/mobile/long content/keyboard/error states against the local source. Run `./scripts/verify`, record actual failures and fixes, then perform a separate Standards and Spec review against the fixed base. Update FEATURES.md in the implementation change. Local checks are not CI, publishing, real-data privacy or course approval.
 
 Progress and executed evidence will be appended as tickets integrate.
+
+## Executed progress
+
+- The initial candidate browser slice ran red on the absent `2. Pogłębienie` step. Existing acceptance tests are committed at `8026cf3`; this is not evidence that the feature passed.
+- After interruption, uncommitted `/tmp` worktrees were unavailable. Only committed schema work survived. Durable contracts and worktrees now preserve subsequent progress; interrupted agent reports were not treated as saved implementation.
+- D1 integrated with separate merger review at `293a839`: shared snapshots/configuration, explicit v1 migration under the existing storage key, revision/reference checks, captured identity and durable draft removal. The independent review found no substantive blocker. Focused schema/model/storage tests: 24 passed; typecheck passed.
+- D3's own implementation commits are `16cc4ea` and `af5de16`. Its three employer Chromium journeys passed, including new publication/skip, proposal editing/authorship, manual aspects/reordering/max-three, later disable, unavailable generation, invalid excerpt and keyboard close/focus at 320px. Its worktree passed typecheck, 69 unit tests and source-kit checks. A partial full gate stopped at a D2-owned lint error before browser tests; it does not establish final verification. D3 is awaiting independent review and dependency integration.
+- D2's provisional client and HTTP boundary commits are `12eb083` and `f03a36b`. Its native Node startup smoke exposed a TypeScript parameter-property unsupported by Node's type stripping; that is being corrected and rechecked before integration. No live model request is part of the automated gate.
