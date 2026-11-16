@@ -7,7 +7,7 @@ import { Field } from "@/features/prototype/workspace";
 import { usePrototype } from "@/features/prototype/store";
 import type { State } from "@/features/prototype/model";
 import { suggestAspects } from "./client";
-import { configurationSchema, type ApprovedAspect } from "./schema";
+import { configurationSchema, hasSupportingExcerpts, type ApprovedAspect } from "./schema";
 
 type Suggestion = { title: string; explanation: string; excerpt: string };
 export function EmployerDeepeningConfiguration({
@@ -88,7 +88,7 @@ export function EmployerDeepeningConfiguration({
   function save(enabled: boolean) {
     const configuration = {
       enabled,
-      revision: job.deepening?.revision ?? 0,
+      revision: (job.deepening?.revision ?? 0) + 1,
       aspects: enabled
         ? aspects.map((item, order) => ({ ...item, order }))
         : (job.deepening?.aspects ?? []),
@@ -100,8 +100,7 @@ export function EmployerDeepeningConfiguration({
       );
       return;
     }
-    const publicContent = [job.title, job.summary, job.description].join("\n\n");
-    if (enabled && parsed.data.aspects.some((item) => !publicContent.includes(item.excerpt))) {
+    if (enabled && !hasSupportingExcerpts(job, parsed.data.aspects)) {
       report(
         "Każdy aspekt musi zawierać dokładny, niezmieniony fragment zapisanej oferty. Skopiuj go z treści poniżej.",
       );

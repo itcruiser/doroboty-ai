@@ -6,6 +6,15 @@ const safeId = z
   .max(100)
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/);
 const publicText = z.string().trim().min(1).max(12000);
+
+export function hasSupportingExcerpts(
+  job: { title: string; summary: string; description: string },
+  aspects: ReadonlyArray<{ excerpt: string }>,
+): boolean {
+  const publicContent = [job.title, job.summary, job.description].join("\n\n");
+  return aspects.every((aspect) => publicContent.includes(aspect.excerpt));
+}
+
 export const aspectSchema = z.object({
   id: safeId,
   title: z.string().trim().min(1).max(120),
@@ -36,6 +45,10 @@ export const configurationSchema = z
   .refine((configuration) => !configuration.enabled || configuration.aspects.length > 0, {
     path: ["aspects"],
     message: "Enabled deepening requires one to three aspects",
+  })
+  .refine((configuration) => !configuration.enabled || configuration.revision > 0, {
+    path: ["revision"],
+    message: "Enabled deepening requires a positive configuration revision",
   });
 export const revisionSchema = z
   .object({
@@ -48,8 +61,7 @@ export const revisionSchema = z
     aspects: aspectsSchema.refine((aspects) => aspects.length > 0),
   })
   .superRefine((revision, ctx) => {
-    const publicContent = [revision.title, revision.summary, revision.description].join("\n\n");
-    if (revision.aspects.some((aspect) => !publicContent.includes(aspect.excerpt)))
+    if (!hasSupportingExcerpts(revision, revision.aspects))
       ctx.addIssue({
         code: "custom",
         path: ["aspects"],

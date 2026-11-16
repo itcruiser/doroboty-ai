@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { aspectSchema, revisionSchema } from "./schema.ts";
+import { aspectSchema, hasSupportingExcerpts, revisionSchema } from "./schema.ts";
 import { professionalFacts } from "./privacy.ts";
 
 export const MAX_REQUEST_BYTES = 100_000;
@@ -87,9 +87,7 @@ export const questionsSchema = z
   .strict();
 export function validateSuggestions(value: unknown, job: z.infer<typeof publicJobSchema>) {
   const result = aspectSuggestionsSchema.parse(value);
-  const content = [job.title, job.summary, job.description].join("\n\n");
-  if (result.aspects.some((aspect) => !content.includes(aspect.excerpt)))
-    throw new Error("Invalid supporting excerpt");
+  if (!hasSupportingExcerpts(job, result.aspects)) throw new Error("Invalid supporting excerpt");
   return result;
 }
 export function validateQuestions(value: unknown, aspectIds: string[]) {
