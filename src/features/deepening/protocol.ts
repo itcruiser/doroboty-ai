@@ -46,7 +46,10 @@ const factsSchema = z
   .refine((facts) => new Set(facts).size === facts.length);
 const strictRevisionSchema = revisionSchema
   .safeExtend({ aspects: z.array(aspectSchema.strict()).min(1).max(3) })
-  .strict();
+  .strict()
+  .refine((revision) => revisionSchema.safeParse(revision).success, {
+    message: "Invalid approved aspect ordering or identifiers",
+  });
 export const questionRequestSchema = z
   .object({
     revision: strictRevisionSchema,
