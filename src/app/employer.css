@@ -1,0 +1,268 @@
+/* Scoped employer composition using the shared Poster People surfaces and controls. */
+.employer-editor {
+  padding-block: 12px 64px;
+}
+.employer-editor-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+.employer-editor-layout > * {
+  min-width: 0;
+}
+.employer-editor-guide {
+  padding-top: 24px;
+}
+.employer-eyebrow {
+  margin-bottom: 12px;
+  color: var(--gui-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.employer-editor-guide ol {
+  display: grid;
+  gap: 18px;
+  list-style: none;
+  margin-block: 24px 32px;
+  padding: 0;
+}
+.employer-editor-guide li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.employer-editor-guide li span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--gui-edge);
+  border-radius: 50%;
+}
+.employer-editor-guide [aria-current="step"] span {
+  background: var(--gui-text);
+  color: white;
+}
+.employer-editor-guide > p:last-child,
+.employer-hint {
+  color: var(--gui-text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.employer-editor-sheet {
+  padding: 32px;
+  border-radius: 24px;
+}
+.employer-editor-sheet h2,
+.employer-deepening-dialog [data-slot="dialog-title"] {
+  font-family: var(--font-heading);
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+}
+.employer-editor-sheet h3,
+.employer-deepening-dialog h3 {
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 400;
+}
+.employer-editor-sheet textarea {
+  min-height: 170px;
+}
+.employer-editor-sheet header {
+  margin-bottom: 12px;
+}
+.employer-template,
+.employer-preview {
+  display: grid;
+  gap: 20px;
+  overflow-wrap: anywhere;
+}
+.employer-template {
+  padding-top: 24px;
+  border-top: 1px solid var(--gui-edge);
+}
+.employer-preview dl {
+  display: grid;
+  gap: 14px;
+  padding-block: 24px;
+  border-block: 1px solid var(--gui-edge);
+}
+.employer-preview dt {
+  color: var(--gui-text-muted);
+  font-size: 12px;
+}
+.employer-preview dd {
+  margin-top: 4px;
+}
+.employer-editor-actions,
+.employer-inline-actions,
+.employer-deepening-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.employer-editor-actions {
+  padding-top: 24px;
+  border-top: 1px solid var(--gui-edge);
+  justify-content: space-between;
+}
+.employer-terms-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.employer-configuration-entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.employer-deepening-dialog[data-slot="dialog-content"] {
+  display: flex;
+  flex-direction: column;
+  width: min(820px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  gap: 0;
+  padding: 0;
+  border-radius: 24px;
+  box-shadow: 0 0 0 1px var(--gui-edge);
+}
+.employer-deepening-dialog > header {
+  padding: 28px 32px 24px;
+  padding-right: 62px;
+  border-bottom: 1px solid var(--gui-edge);
+}
+.employer-deepening-dialog [data-slot="dialog-description"] {
+  margin-top: 12px;
+}
+.employer-deepening-body {
+  display: grid;
+  gap: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  padding: 28px 32px;
+}
+.employer-deepening-body > p {
+  line-height: 1.7;
+}
+.employer-proposals,
+.employer-approved {
+  display: grid;
+  gap: 20px;
+}
+.employer-proposals article {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--gui-edge);
+  border-radius: 18px;
+  background: var(--gui-surface-muted);
+  overflow-wrap: anywhere;
+}
+.employer-proposals h4 {
+  font-size: 24px;
+  font-weight: 400;
+}
+.employer-proposals blockquote {
+  border-left: 2px solid var(--gui-edge);
+  padding-left: 14px;
+}
+.employer-aspect {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--gui-edge);
+  border-radius: 18px;
+}
+.employer-aspect legend {
+  padding-inline: 8px;
+}
+.employer-aspect textarea {
+  min-height: 90px;
+}
+.employer-public-source {
+  border-block: 1px solid var(--gui-edge);
+  padding-block: 20px;
+  overflow-wrap: anywhere;
+}
+.employer-public-source summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.employer-public-source[open] > * + * {
+  margin-top: 18px;
+}
+.employer-deepening-footer {
+  flex-shrink: 0;
+  padding: 20px 32px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--gui-edge);
+}
+.employer-editor button,
+.employer-deepening-dialog button {
+  white-space: normal;
+}
+@media (max-width: 850px) {
+  .employer-editor-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .employer-editor-guide {
+    padding: 0;
+  }
+  .employer-editor-guide ol {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-block: 16px;
+    gap: 8px;
+  }
+  .employer-editor-guide li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .employer-editor-guide > p {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .employer-editor-sheet {
+    padding: 22px;
+  }
+  .employer-editor-sheet h2,
+  .employer-deepening-dialog [data-slot="dialog-title"] {
+    font-size: 32px;
+  }
+  .employer-terms-grid {
+    grid-template-columns: 1fr;
+  }
+  .employer-deepening-dialog[data-slot="dialog-content"] {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+  .employer-deepening-dialog > header {
+    padding: 24px 48px 20px 20px;
+  }
+  .employer-deepening-body {
+    padding: 20px;
+  }
+  .employer-deepening-footer {
+    padding: 18px 20px;
+  }
+  .employer-deepening-footer > button {
+    flex: 1 1 100%;
+  }
+  .employer-aspect,
+  .employer-proposals article {
+    padding: 16px;
+  }
+}
