@@ -440,16 +440,27 @@ export function EmployerJobEditor() {
                   </div>
                 </dl>
               </section>
-              <section aria-label="Podgląd pogłębienia" className="employer-preview">
+              <section
+                aria-label="Podgląd pogłębienia"
+                className="employer-preview employer-deepening-preview"
+              >
                 <h3>Pogłębienie: {deepening.enabled ? "włączone" : "wyłączone"}</h3>
-                {deepening.enabled &&
-                  deepening.aspects.map((aspect) => (
-                    <div key={aspect.id}>
-                      <h4>{aspect.title}</h4>
-                      <p>{aspect.explanation}</p>
-                      <blockquote>{aspect.excerpt}</blockquote>
-                    </div>
-                  ))}
+                {deepening.enabled && (
+                  <div className="employer-deepening-summary">
+                    {deepening.aspects.map((aspect, index) => (
+                      <article key={aspect.id}>
+                        <h4>
+                          {index + 1}. {aspect.title}
+                        </h4>
+                        <p>{aspect.explanation}</p>
+                        <div className="employer-deepening-citation">
+                          <p className="employer-hint">Fragment oferty</p>
+                          <blockquote>{aspect.excerpt}</blockquote>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </section>
               <label className="flex items-start gap-3">
                 <Checkbox
