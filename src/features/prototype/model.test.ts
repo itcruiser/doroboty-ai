@@ -360,3 +360,38 @@ describe("final deepening submission", () => {
     expect(skipped.applications.at(-1)?.score).toBe(84);
   });
 });
+
+describe("session-only deepening entry", () => {
+  it("drops only the selected candidate/job draft without creating an application", () => {
+    let state = as(initialState(), "candidate-marek");
+    const jobId = state.jobs[1].id;
+    state = transition(state, {
+      type: "draft",
+      jobId,
+      notes: "Marek notes",
+      generated: "",
+      answer: "Marek draft",
+    });
+    state = as(state, "candidate-anna");
+    state = transition(state, {
+      type: "draft",
+      jobId,
+      notes: "Anna notes",
+      generated: "",
+      answer: "Anna draft",
+    });
+    state = transition(state, {
+      type: "draft",
+      jobId: state.jobs[2].id,
+      notes: "Other job",
+      generated: "",
+      answer: "Other draft",
+    });
+    const result = transition(state, { type: "drop_draft", jobId });
+    expect(result.drafts.map((draft) => draft.answer)).toEqual(["Marek draft", "Other draft"]);
+    expect(result.applications).toEqual(state.applications);
+    expect(() =>
+      transition(as(state, "employer-brightlabs"), { type: "drop_draft", jobId }),
+    ).toThrow("kandydata");
+  });
+});

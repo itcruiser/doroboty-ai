@@ -234,6 +234,7 @@ export type Action =
   | { type: "select_person"; id: string | null }
   | { type: "profile"; value: z.infer<typeof profileSchema> }
   | { type: "toggle_saved"; jobId: string }
+  | { type: "drop_draft"; jobId: string }
   | { type: "draft"; jobId: string; notes: string; generated: string; answer: string }
   | {
       type: "submit";
@@ -322,6 +323,12 @@ export function transition(
     const index = s.saved.findIndex((x) => x.candidateId === p.id && x.jobId === action.jobId);
     if (index >= 0) s.saved.splice(index, 1);
     else s.saved.push({ candidateId: p.id, jobId: action.jobId });
+  } else if (action.type === "drop_draft") {
+    const p = candidate();
+    if (!s.jobs.some((job) => job.id === action.jobId)) fail("Nie znaleziono oferty.");
+    s.drafts = s.drafts.filter(
+      (draft) => !(draft.candidateId === p.id && draft.jobId === action.jobId),
+    );
   } else if (action.type === "draft") {
     const p = candidate();
     const draft = draftSchema.parse({ candidateId: p.id, ...action });
