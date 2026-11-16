@@ -24,7 +24,15 @@ export function ApplicationRecord({
 }: {
   application: Pick<
     Application,
-    "candidateId" | "candidateName" | "jobTitle" | "stage" | "answer" | "cv" | "score" | "summary"
+    | "candidateId"
+    | "candidateName"
+    | "jobTitle"
+    | "stage"
+    | "answer"
+    | "cv"
+    | "score"
+    | "summary"
+    | "deepening"
   >;
   companyName: string;
   audience: "candidate" | "employer";
@@ -96,6 +104,26 @@ export function ApplicationRecord({
           ]}
           footer={footer}
         >
+          {application.deepening && (
+            <section aria-labelledby="submitted-deepening-heading" className="submitted-deepening">
+              <h3 id="submitted-deepening-heading">Pogłębienie</h3>
+              {application.deepening.status === "skipped" ? (
+                <p>Wysłano bez pogłębienia: nie udało się wygenerować pytań.</p>
+              ) : (
+                application.deepening.responses.map((response, index) => (
+                  <section key={response.aspectId} className="submitted-deepening-response">
+                    <h4>{application.deepening!.revision.aspects[index].title}</h4>
+                    <p className="application-help">Pytanie przygotowane przez AI</p>
+                    <p>{response.question}</p>
+                    <p className="application-help">Odpowiedź kandydata</p>
+                    <p className="whitespace-pre-wrap">
+                      {response.refused ? "Nie chcę odpowiadać" : response.answer}
+                    </p>
+                  </section>
+                ))
+              )}
+            </section>
+          )}
           {children}
         </RecordSheet>
         <aside className="recruiting-margin" aria-label="Historia i podsumowanie">
