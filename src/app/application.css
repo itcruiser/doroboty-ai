@@ -299,3 +299,131 @@
   background: var(--gui-color-1);
   color: var(--gui-text);
 }
+
+/* Focused application: offer context above one uninterrupted writing sheet. */
+.application-focused-layout {
+  display: flex;
+  flex-direction: column;
+  max-width: 840px;
+  margin-inline: auto;
+  gap: 24px;
+}
+.application-focused-layout > * {
+  width: 100%;
+}
+.application-offer-compact {
+  position: static;
+  padding: 24px 30px;
+}
+.application-offer-compact .application-company {
+  margin-block: 14px 8px;
+}
+.application-offer-compact .application-company [data-company-logo] {
+  width: 30px;
+  height: 30px;
+}
+.application-offer-compact h2 {
+  margin-bottom: 8px;
+}
+.application-offer-compact .application-pay {
+  margin-top: 14px;
+}
+.application-offer-compact .application-description {
+  margin-top: 8px;
+}
+.application-step-context {
+  padding-inline: 6px;
+}
+.application-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  list-style: none;
+  padding: 0;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+.application-steps li {
+  padding-bottom: 8px;
+  border-bottom: 2px solid transparent;
+}
+.application-steps [aria-current="step"] {
+  border-color: var(--gui-text);
+  font-weight: 600;
+}
+.application-generation-status {
+  margin-bottom: 24px;
+}
+.deepening-question .application-eyebrow {
+  margin-bottom: 8px;
+}
+.deepening-excerpt {
+  margin-block: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.deepening-excerpt summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.deepening-excerpt blockquote {
+  border-left: 2px solid var(--gui-text);
+  padding-left: 14px;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.deepening-question-copy {
+  margin-block: 24px 18px;
+  line-height: 1.7;
+  font-size: 16px;
+}
+.deepening-question-copy > span {
+  display: block;
+  font-size: 12px;
+  color: var(--gui-text-muted);
+  margin-bottom: 8px;
+}
+.deepening-question textarea {
+  min-height: 140px;
+  line-height: 1.7;
+}
+.deepening-refusal {
+  margin-block: 18px;
+}
+.deepening-question [data-slot="button"] {
+  white-space: normal;
+  max-width: 100%;
+}
+.submitted-deepening {
+  border-top: 1px solid var(--pp-line);
+  margin-top: 28px;
+  padding-top: 28px;
+}
+.submitted-deepening > h3 {
+  font-size: 26px;
+  margin-bottom: 18px;
+}
+.submitted-deepening-response + .submitted-deepening-response {
+  border-top: 1px solid var(--pp-line);
+  margin-top: 24px;
+  padding-top: 24px;
+}
+.submitted-deepening-response h4 {
+  font-size: 23px;
+  margin-bottom: 14px;
+}
+.submitted-deepening-response p {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.submitted-deepening-response .application-help {
+  margin-block: 14px 6px;
+}
+@media (max-width: 600px) {
+  .application-offer-compact {
+    padding: 22px;
+  }
+  .application-focused-layout {
+    gap: 20px;
+  }
+}
