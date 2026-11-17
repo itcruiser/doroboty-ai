@@ -17,6 +17,8 @@
     "check": "npm run format:check && npm run design-system:check && npm run lint && npm run typecheck && npm test && npm run verify:packet && npm run build && npm run test:e2e",
     "package:participant": "node scripts/package-participant.mjs",
     "verify:packet": "node scripts/verify-participant.mjs",
+    "release:prepare": "node scripts/release.mjs prepare",
+    "release:check": "node scripts/release.mjs check",
     "design-system:check": "node docs/design-system/verify-kit.mjs && npm --prefix docs/design-system/agent-kit run check",
     "design-system:dev": "npm --prefix docs/design-system/agent-kit run dev"
   },
@@ -51,6 +53,11 @@
     "eslint-plugin-react-hooks": "^7.0.0",
     "eslint-plugin-react-refresh": "^0.4.0",
     "globals": "^16.0.0"
+  },
+  "overrides": {
+    "@ts-morph/common": {
+      "minimatch": "^11.0.1"
+    }
   },
   "engines": {
     "node": ">=24 <27"

@@ -16,7 +16,7 @@ Storage uses one versioned localStorage key. Import validates schema/version, un
 
 src/features/prototype owns model/storage/state and page compositions. src/features/jobs retains reusable presentation/filter/description logic; src/components/ui owns Base UI controls. Keep changes small.
 
-LocalStorage is origin-specific. Reload preserves state; another browser/device/port starts separately. No cross-tab live synchronization is provided; close other tabs before editing/importing. Hash links reference records in the receiving browser, not transferred records.
+LocalStorage is origin-specific. Reload preserves state; another browser/device/port starts separately. No cross-tab live synchronization is provided. An exclusive browser Web Lock permits one editing tab; other tabs are read-only with export and takeover after closing the writer and reloading. Startup normalizes legacy storage only after acquiring that lock and re-reads the latest state before enabling writes. External storage events pause editing until reload. Unsupported Web Locks environments remain read-only. Hash links reference records in the receiving browser, not transferred records.
 
 ## Evidence and distribution
 
@@ -39,3 +39,9 @@ Requests are limited to 100,000 UTF-8 bytes and five seconds to receive the body
 HTTP tests use real ephemeral loopback listeners and inject only the external provider fetch; client tests substitute the HTTP fetch boundary. Native Node loading is verified separately. No automated test spends API credit or establishes model quality. Participant packaging includes `server/`, the startup script and shared protocol/client, excluding environment files, instructor materials and Git history.
 
 Retired aspect offer fragments are absent from the domain and strict AI wire schemas. Version-2 load/import uses the shared stripping object schemas to discard legacy excerpt keys from job configurations and submitted aspect revisions without changing their IDs, revision numbers, questions, decisions or identity. readState rewrites valid legacy saves in normalized form. A failed rewrite preserves the original durable save and the normalized usable memory state with the standard export warning; persisted draft tracking remains intact. Invalid saves retain the existing protected recovery path. The storage key and version-1 migration remain unchanged.
+
+## Presentation resilience and release
+
+ApplicationErrorBoundary surrounds the provider/router. A caught render error unmounts the writer and shows a Poster People host recovery panel with private raw-save download, reload, fixed APP-RENDER code and build identity. It never resets storage or renders/logs error text. React's caught-error handler is deliberately silent; event-handler failures and inability to load the JavaScript bundle are outside this render boundary. A build identifier combines the source revision and timestamp and is also emitted as version.json.
+
+Vercel serves only dist with the committed same-origin security headers and cache policy. The optional loopback AI companion is not deployed. scripts/release.mjs archives an already-built dist outside the repository and verifies its SHA-256 inventory without overwriting prior archives. A new Vercel build has its own identity. docs/PUBLICATION.md distinguishes artifact checks, local rehearsal, production smoke and actual rollback evidence. Browser-local saves are not covered by Vercel backups.

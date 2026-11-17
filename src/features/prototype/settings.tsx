@@ -4,17 +4,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { usePrototype } from "./store";
 import { serializeState, MAX_IMPORT_BYTES } from "./storage";
 import { PageTitle } from "./shell";
-
-export function downloadText(name: string, text: string, type = "application/json") {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+import { downloadText } from "./download";
 export function SettingsPage() {
   const { state, reset, importState, original } = usePrototype();
   const [pending, setPending] = useState<"reset" | "import" | null>(null);
@@ -39,8 +29,7 @@ export function SettingsPage() {
   }
   function confirm() {
     if (pending === "reset") {
-      reset();
-      setMessage("Przywrócono scenariusz początkowy.");
+      if (reset()) setMessage("Przywrócono scenariusz początkowy.");
     } else if (importState(raw)) {
       setMessage("Dane zostały zaimportowane.");
     }
@@ -124,9 +113,22 @@ export function PrivacyPage() {
           ani poufnych informacji.
         </p>
         <p>
-          Profile, aplikacje i ustawienia pozostają w pamięci tej przeglądarki. Aplikacja nie wysyła
-          ich do bazy, dostawcy AI ani systemu analitycznego. Plik eksportu zawiera cały lokalny
-          scenariusz, w tym notatki.
+          Profile, aplikacje i ustawienia pozostają w pamięci tej przeglądarki. Wersja statyczna nie
+          ma bazy ani publicznej usługi AI. Plik eksportu zawiera cały lokalny scenariusz, w tym
+          notatki wszystkich osób. Nie udostępniaj w nim prawdziwych danych.
+        </p>
+        <p>
+          Opcjonalny lokalny serwer AI wysyła do dostawcy publiczną treść oferty i zatwierdzone
+          aspekty, a przy pytaniach także przygotowany tekst aplikacji oraz opcjonalnie CV. Przed
+          generowaniem możesz sprawdzić dokładny podgląd tekstu. Filtr może pominąć prywatne
+          informacje lub usunąć poprawną treść — nie zapewnia anonimowości. Używaj wyłącznie danych
+          syntetycznych. Sam PDF, dane kontaktowe i notatki rekrutacyjne nie są wysyłane.
+        </p>
+        <p>
+          Serwer AI korzysta z klucza operatora i może generować koszty. Ustawienie wyłączające
+          zapisywanie odpowiedzi przez aplikację nie gwarantuje braku retencji po stronie dostawcy.
+          Bez lokalnego serwera możesz ręcznie skonfigurować aspekty lub wysłać aplikację bez
+          pogłębienia po błędzie generowania.
         </p>
         <p>
           Możesz usunąć zmiany przyciskiem „Resetuj scenariusz” w ustawieniach lub wyczyścić dane

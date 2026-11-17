@@ -49,3 +49,9 @@ npm run preview
 The static output is dist/. Browser checks require an already provisioned Playwright Chromium; starting the app never installs it. See [participant guide](docs/PARTICIPANT_GUIDE.md), [architecture](docs/architecture.md), [current features](FEATURES.md) and [case protocol](docs/case/CASE_PROTOCOL.md).
 
 To distribute a baseline participant package, run npm run package:participant -- /absolute/output/directory. This excludes Git history and instructor source material. Never distribute this repository’s history as a stage-safe packet.
+
+## Publish the static presentation
+
+Vercel is the selected hosting target. Follow [publication and recovery](docs/PUBLICATION.md): `vercel.json` builds only `dist/`, with no public AI or provider secrets. The build emits `version.json` and a matching recovery-screen identity. `npm run release:prepare -- /absolute/archive/path` archives an existing build outside the repo; `npm run release:check -- /absolute/archive/path` verifies file hashes. Hosting access, URL, operator, contact and budget still need confirmation before admission. Local checks are not deployment verification.
+
+One tab per browser scenario holds an exclusive Web Lock for editing; other tabs retain read/export access. Close the editing tab and reload to take over. HTTPS or loopback and Web Locks support are required. External storage changes pause edits. A render failure offers a raw-save download and reload without resetting data or logging caught error text.

@@ -52,7 +52,7 @@ function hasRetiredAspectFields(raw: string): boolean {
       ),
   );
 }
-export function readState(storage: StoragePort | null) {
+export function readState(storage: StoragePort | null, normalize = true) {
   if (!storage)
     return {
       state: initialState(),
@@ -66,7 +66,7 @@ export function readState(storage: StoragePort | null) {
     raw = storage.getItem(STORAGE_KEY);
     const state = raw ? parseState(raw) : initialState();
     let issue = "";
-    if (raw && hasRetiredAspectFields(raw)) {
+    if (normalize && raw && hasRetiredAspectFields(raw)) {
       try {
         saveState(storage, state);
       } catch (error) {
