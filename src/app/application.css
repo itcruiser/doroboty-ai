@@ -300,17 +300,6 @@
   color: var(--gui-text);
 }
 
-/* Focused application: offer context above one uninterrupted writing sheet. */
-.application-focused-layout {
-  display: flex;
-  flex-direction: column;
-  max-width: 840px;
-  margin-inline: auto;
-  gap: 24px;
-}
-.application-focused-layout > * {
-  width: 100%;
-}
 .application-offer-compact {
   position: static;
   padding: 24px 30px;
@@ -330,26 +319,6 @@
 }
 .application-offer-compact .application-description {
   margin-top: 8px;
-}
-.application-step-context {
-  padding-inline: 6px;
-}
-.application-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 28px;
-  list-style: none;
-  padding: 0;
-  margin-bottom: 14px;
-  font-size: 14px;
-}
-.application-steps li {
-  padding-bottom: 8px;
-  border-bottom: 2px solid transparent;
-}
-.application-steps [aria-current="step"] {
-  border-color: var(--gui-text);
-  font-weight: 600;
 }
 .application-generation-status {
   margin-bottom: 24px;
@@ -379,11 +348,6 @@
   white-space: normal;
   max-width: 100%;
 }
-.submitted-deepening {
-  border-top: 1px solid var(--pp-line);
-  margin-top: 28px;
-  padding-top: 28px;
-}
 .submitted-deepening > h3 {
   font-size: 26px;
   margin-bottom: 18px;
@@ -392,6 +356,12 @@
   border-top: 1px solid var(--pp-line);
   margin-top: 24px;
   padding-top: 24px;
+}
+.submitted-deepening-response .submitted-aspect-order {
+  margin-bottom: 10px;
+}
+.submitted-deepening-response .submitted-aspect-explanation {
+  margin-bottom: 20px;
 }
 .submitted-deepening-response h4 {
   font-size: 23px;
@@ -407,9 +377,6 @@
 @media (max-width: 600px) {
   .application-offer-compact {
     padding: 22px;
-  }
-  .application-focused-layout {
-    gap: 20px;
   }
 }
 
@@ -444,44 +411,29 @@
     grid-column: 1 / -1;
   }
 }
-.application-fact-preparation fieldset {
-  min-width: 0;
-  margin-block: 20px;
+.application-tabs {
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.application-fact-preparation legend {
+.application-session-warning {
+  margin-bottom: 24px;
+}
+.application-ai-context {
+  margin-top: 20px;
+}
+.application-ai-context details {
+  margin-top: 12px;
   font-size: 13px;
-  font-weight: 650;
-  margin-bottom: 12px;
+  line-height: 1.7;
 }
-.application-fact-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 20px;
+.application-ai-context summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
-.application-fact-options .application-consent {
-  min-height: 39px;
-  margin: 0;
-  align-items: center;
-  font-size: 13px;
+.application-ai-context details h3 {
+  margin-top: 20px;
 }
-.application-fact-options [data-slot="checkbox"] {
-  width: 17px;
-  height: 17px;
-  border-radius: 5px;
-}
-.application-fact-preparation [data-slot="button"] {
-  max-width: 100%;
-  white-space: normal;
-}
-.application-fact-preparation > .application-help {
-  margin-top: 14px;
-}
-@media (max-width: 600px) {
-  .application-fact-options {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .application-fact-options .application-consent,
-  .application-fact-preparation legend {
-    font-size: 15px;
-  }
+.application-ai-context details p {
+  white-space: pre-wrap;
 }

@@ -1,6 +1,10 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { AnswerPreparationError, generateQuestions } from "./client";
-import type { ProfessionalFact } from "./privacy";
+import { generateQuestions, suggestAspects } from "./client";
+import {
+  isPreparedProfessionalText,
+  prepareCandidateContext,
+  prepareProfessionalText,
+} from "./privacy";
 import type { DeepeningRevision } from "./schema";
 
 const revision: DeepeningRevision = {
@@ -9,140 +13,179 @@ const revision: DeepeningRevision = {
   aspectRevision: 1,
   title: "Product Manager",
   summary: "Badania z użytkownikami",
-  description: "Badania z użytkownikami",
+  description: "Badania z użytkownikami i automatyzacja.",
   aspects: [
-    {
-      id: "research",
-      title: "Badania",
-      explanation: "Opisz wkład",
-
-      author: "employer",
-      order: 0,
-    },
+    { id: "research", title: "Badania", explanation: "Opisz wkład", author: "employer", order: 0 },
   ],
+};
+const original =
+  "Mam doświadczenie w badaniu potrzeb. Samodzielnie przeprowadziłam 12 rozmów i skróciłam czas obsługi o 30%.";
+const generated = {
+  questions: [{ aspectId: "research", question: "Jak wybrałaś uczestników tych 12 rozmów?" }],
 };
 afterEach(() => vi.unstubAllGlobals());
 
-test("question generation sends only canonical professional facts before the HTTP boundary", async () => {
+test("ordinary professional prose and CV context cross HTTP without identity or contact metadata", async () => {
   let body = "";
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url, init: RequestInit) => {
-      body = String(init.body);
-      return Response.json({
-        questions: [
-          { aspectId: "research", question: "Jeśli chcesz rozwinąć badania, jaki był Twój wkład?" },
-        ],
-      });
-    }),
-  );
-  const result = await generateQuestions({
-    revision,
-    aspectIds: ["research"],
-    answer:
-      "Prowadziłam badania z użytkownikami i wdrożyłam automatyzację. Czas obsługi skrócił się o 30%.",
-    cv: "Anna Prywatna — Product Manager\nTelefon 500600700\nProwadziłam badania z użytkownikami.",
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    body = String(init.body);
+    return Response.json(generated);
   });
-  expect(result.questions).toHaveLength(1);
-  expect(JSON.parse(body)).toEqual({
-    revision,
-    aspectIds: ["research"],
-    answerFacts: ["user_research", "automation_delivery", "service_time_reduction"],
-  });
-  expect(body).not.toMatch(/Anna|example|500600700|Prowadziłam|cv/i);
+  const answer = `${original}\nNazywam się Anna Prywatna, anna@example.test, +48 500 600 700.\nChoruję na cukrzycę.`;
+  const cv =
+    "Anna Prywatna — Product Manager\nTelefon: 500600700\nProwadziłam wdrożenie automatyzacji obsługi klientów.";
+  await expect(
+    generateQuestions({ revision, aspectIds: ["research"], answer, cv, name: "Anna Prywatna" }),
+  ).resolves.toEqual(generated);
+  const input = JSON.parse(body);
+  expect(input.applicationText).toContain(original);
+  expect(input.cvText).toContain("Product Manager");
+  expect(input.cvText).toContain("Prowadziłam wdrożenie automatyzacji obsługi klientów.");
+  expect(body).not.toMatch(/Anna|Prywatna|example.test|500|cukrzyc|answerFacts|cvFacts/);
+  expect(answer).toContain("Anna Prywatna");
+  expect(input.revision).toEqual(revision);
 });
 
-for (const answer of [
-  "React, badania, automatyzacja",
-  "Anna Prywatna, anna@example.test. Prowadziłam badania z użytkownikami.",
-  "Prowadziłam badania z użytkownikami. To kłamstwo.",
-  "Nie prowadziłam badań z użytkownikami.",
-  "Nie wiem. Prowadziłam badania z użytkownikami.",
-  "Chyba prowadziłam badania z użytkownikami.",
-  "Anna Prywatna anna@example.test 500600700",
-  'Powiedział: "Prowadziłam badania z użytkownikami".',
-  "Być może. Prowadziłam badania z użytkownikami.",
-  "Nie wdrożyłam automatyzacji, ale znam React.",
+test("local preview uses exactly the same prepared context as generation", async () => {
+  const input = { answer: original, cv: "Analizowałam dane o obsłudze.", name: "Anna Kowalska" };
+  let sent: unknown;
+  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+    sent = JSON.parse(String(init.body));
+    return Response.json(generated);
+  });
+  await generateQuestions({ ...input, revision, aspectIds: ["research"] });
+  expect(sent).toEqual({ revision, aspectIds: ["research"], ...prepareCandidateContext(input) });
+});
+
+for (const privateText of [
+  "Nazywam się Anna Kowalska. anna@example.test, telefon +48 123 456 789.",
+  "anna@example.test",
+  "+48 500 600 700",
+  "500.600.700",
+  "PESEL: 90010112345",
+  "Adres: ul. Kwiatowa 12",
+  "Data urodzenia: 1990-01-01",
+  "Choruję na cukrzycę.",
+  "Moje wyznanie to religia przykładowa.",
+  "Anna Kowalska",
+  "",
 ])
-  test(`unsafe or unsupported answer is blocked before fetch: ${answer}`, async () => {
+  test(`only private or empty material makes no model request: ${privateText}`, async () => {
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
     await expect(
       generateQuestions({
         revision,
         aspectIds: ["research"],
-        answer,
-        cv: "Prowadziłam badania z użytkownikami.",
+        answer: privateText,
+        cv: "",
+        name: "Anna Kowalska",
       }),
-    ).rejects.toBeInstanceOf(AnswerPreparationError);
+    ).rejects.toThrow();
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-test("client rejects duplicate or unrelated question IDs", async () => {
-  vi.stubGlobal("fetch", async () =>
-    Response.json({ questions: [{ aspectId: "other", question: "Pytanie" }] }),
-  );
+for (const privateText of [
+  "anna@example.test",
+  "500600700",
+  "Choruję na cukrzycę.",
+  "Anna Kowalska",
+]) {
+  test(`HTTP prepared-text predicate rejects recognized private content: ${privateText}`, () => {
+    expect(isPreparedProfessionalText(privateText)).toBe(false);
+    expect(prepareProfessionalText(`${original}\n${privateText}`, "Anna Kowalska")).toContain(
+      original,
+    );
+  });
+}
+
+test("unknown professional prose, negation and uncertainty remain faithful context, not positive fact IDs", () => {
+  const text =
+    "Nie prowadziłam badań samodzielnie. Być może warto opisać mój wkład w analizę danych.";
+  expect(prepareProfessionalText(text)).toBe(text);
+  expect(isPreparedProfessionalText(text)).toBe(true);
+});
+
+test("unusable CV is omitted and overlong application is blocked before HTTP", async () => {
+  let sent: Record<string, unknown> = {};
+  const fetcher = vi.fn(async (_url: string, init: RequestInit) => {
+    sent = JSON.parse(String(init.body));
+    return Response.json(generated);
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await generateQuestions({
+    revision,
+    aspectIds: ["research"],
+    answer: original,
+    cv: "Anna Kowalska\nTelefon: 500600700",
+    name: "Anna Kowalska",
+  });
+  expect(sent).not.toHaveProperty("cvText");
   await expect(
     generateQuestions({
       revision,
       aspectIds: ["research"],
-      answer: "Prowadziłam badania z użytkownikami.",
+      answer: "x".repeat(12001),
       cv: "",
+      name: "",
     }),
-  ).rejects.toThrow(/Nie udało/);
+  ).rejects.toThrow();
+  expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
-test("client rejects malformed aspect ordering before HTTP", async () => {
+test("malformed aspect ordering is blocked before HTTP", async () => {
   const fetcher = vi.fn();
   vi.stubGlobal("fetch", fetcher);
   await expect(
     generateQuestions({
       revision: { ...revision, aspects: [{ ...revision.aspects[0], order: 2 }] },
       aspectIds: ["research"],
-      answer: "Prowadziłam badania z użytkownikami.",
+      answer: original,
       cv: "",
+      name: "",
     }),
   ).rejects.toThrow();
   expect(fetcher).not.toHaveBeenCalled();
 });
 
-test("client sends a recognized CV only as finite professional fact IDs", async () => {
-  let body: unknown;
-  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
-    body = JSON.parse(String(init.body));
-    return Response.json({ questions: [{ aspectId: "research", question: "Jaki był wkład?" }] });
+for (const result of [
+  { questions: [{ aspectId: "other", question: "Pytanie" }] },
+  {
+    questions: [
+      { aspectId: "research", question: "A" },
+      { aspectId: "research", question: "B" },
+    ],
+  },
+])
+  test("invalid question identifiers preserve the unavailable boundary", async () => {
+    vi.stubGlobal("fetch", async () => Response.json(result));
+    await expect(
+      generateQuestions({ revision, aspectIds: ["research"], answer: original, cv: "", name: "" }),
+    ).rejects.toThrow(/Nie udało/);
   });
-  await generateQuestions({
-    revision,
-    aspectIds: ["research"],
-    answer: "Prowadziłam badania z użytkownikami.",
-    cv: "Wdrożyłam automatyzację.",
-  });
-  expect(body).toEqual({
-    revision,
-    aspectIds: ["research"],
-    answerFacts: ["user_research"],
-    cvFacts: ["automation_delivery"],
-  });
+
+test("client rejects an oversized model response", async () => {
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      new Response("x".repeat(70000), { headers: { "Content-Type": "application/json" } }),
+  );
+  await expect(
+    generateQuestions({ revision, aspectIds: ["research"], answer: original, cv: "", name: "" }),
+  ).rejects.toThrow(/Nie udało/);
 });
 
-test("client rejects retired suggestion fields and drops nonpublic job metadata", async () => {
-  const { suggestAspects } = await import("./client");
+test("aspect suggestions still omit private employer metadata and reject retired fields", async () => {
   let body: unknown;
   vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
     body = JSON.parse(String(init.body));
     return Response.json({
-      aspects: [{ title: "Badania", explanation: "Wkład", excerpt: "not in public content" }],
+      aspects: [{ title: "Badania", explanation: "Wkład", excerpt: "retired" }],
     });
   });
-  const job = {
-    title: revision.title,
-    summary: revision.summary,
-    description: revision.description,
-    sourceBrief: "private source",
-    employerNotes: "private notes",
-  };
-  await expect(suggestAspects(job)).rejects.toThrow(/Nie udało/);
+  await expect(
+    suggestAspects({ ...revision, sourceBrief: "private" } as typeof revision),
+  ).rejects.toThrow();
   expect(body).toEqual({
     title: revision.title,
     summary: revision.summary,
@@ -150,66 +193,8 @@ test("client rejects retired suggestion fields and drops nonpublic job metadata"
   });
 });
 
-test("client accepts title and explanation without an offer excerpt", async () => {
-  const { suggestAspects } = await import("./client");
+test("client accepts title/explanation-only aspect suggestions", async () => {
   const suggestion = { aspects: [{ title: "Badania", explanation: "Opisz własny wkład." }] };
   vi.stubGlobal("fetch", async () => Response.json(suggestion));
   await expect(suggestAspects(revision)).resolves.toEqual(suggestion);
 });
-
-test("client refuses an oversized HTTP response", async () => {
-  vi.stubGlobal(
-    "fetch",
-    async () =>
-      new Response("x".repeat(70_000), { headers: { "Content-Type": "application/json" } }),
-  );
-  await expect(
-    generateQuestions({
-      revision,
-      aspectIds: ["research"],
-      answer: "Prowadziłam badania z użytkownikami.",
-      cv: "",
-    }),
-  ).rejects.toThrow(/Nie udało/);
-});
-
-test("explicitly approved professional facts recover unsupported prose without transmitting it", async () => {
-  let body = "";
-  const fetcher = vi.fn(async (_url, init: RequestInit) => {
-    body = String(init.body);
-    return Response.json({
-      questions: [{ aspectId: "research", question: "Jaki był Twój wkład w badania?" }],
-    });
-  });
-  vi.stubGlobal("fetch", fetcher);
-  await generateQuestions({
-    revision,
-    aspectIds: ["research"],
-    answer: "Anna Prywatna — mam doświadczenie w badaniu potrzeb i automatyzacji procesów.",
-    cv: "Anna Prywatna, telefon 500600700",
-    approvedAnswerFacts: ["user_research", "automation_delivery"],
-  });
-  expect(fetcher).toHaveBeenCalledTimes(1);
-  expect(JSON.parse(body)).toEqual({
-    revision,
-    aspectIds: ["research"],
-    answerFacts: ["user_research", "automation_delivery"],
-  });
-  expect(body).not.toMatch(/Anna|Prywatna|500600700|doświadczenie|cvFacts/);
-});
-
-for (const facts of [[], ["user_research", "user_research"], ["unknown-private-value"]])
-  test(`invalid approved facts never cross HTTP: ${JSON.stringify(facts)}`, async () => {
-    const fetcher = vi.fn();
-    vi.stubGlobal("fetch", fetcher);
-    await expect(
-      generateQuestions({
-        revision,
-        aspectIds: ["research"],
-        answer: "Dowolny opis doświadczenia zawodowego.",
-        cv: "",
-        approvedAnswerFacts: facts as ProfessionalFact[],
-      }),
-    ).rejects.toThrow();
-    expect(fetcher).not.toHaveBeenCalled();
-  });

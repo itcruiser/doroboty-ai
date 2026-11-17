@@ -255,6 +255,11 @@ export function EmployerJobEditor() {
                 Brief jest materiałem roboczym. Nie jest publikowany ani wysyłany do generatora
                 pogłębienia.
               </p>
+            </>
+          )}
+          {stage === 1 && (
+            <>
+              <p>To treść, którą zobaczą kandydaci. Możesz ją swobodnie zmienić.</p>
               <div>
                 <Button
                   type="button"
@@ -290,11 +295,6 @@ export function EmployerJobEditor() {
                   </Button>
                 </section>
               )}
-            </>
-          )}
-          {stage === 1 && (
-            <>
-              <p>To treść, którą zobaczą kandydaci. Możesz ją swobodnie zmienić.</p>
               <Field label="Krótkie podsumowanie">
                 <Textarea
                   aria-label="Krótkie podsumowanie"

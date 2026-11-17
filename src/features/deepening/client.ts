@@ -1,6 +1,6 @@
 import type { Job } from "../jobs/types";
 import type { DeepeningRevision } from "./schema";
-import { prepareProfessionalFacts, type ProfessionalFact } from "./privacy";
+import { prepareCandidateContext } from "./privacy";
 import {
   CLIENT_TIMEOUT_MS,
   MAX_REQUEST_BYTES,
@@ -13,13 +13,6 @@ import {
 
 const unavailable =
   "Nie udało się wygenerować pogłębienia. Spróbuj ponownie lub wyślij bez pogłębienia.";
-export class AnswerPreparationError extends Error {
-  constructor() {
-    super(
-      "Potwierdź informacje zawodowe, z których przygotujemy pytania. Twoja odpowiedź pozostaje bez zmian.",
-    );
-  }
-}
 async function request(route: string, body: unknown, signal?: AbortSignal) {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -72,18 +65,19 @@ export async function generateQuestions(
     answer: string;
     cv: string;
     aspectIds: string[];
-    approvedAnswerFacts?: ProfessionalFact[];
+    name: string;
   },
   signal?: AbortSignal,
 ): Promise<{ questions: Array<{ aspectId: string; question: string }> }> {
-  const answerFacts = input.approvedAnswerFacts ?? prepareProfessionalFacts(input.answer);
-  if (!answerFacts.length) throw new AnswerPreparationError();
-  const cvFacts = prepareProfessionalFacts(input.cv);
+  const context = prepareCandidateContext(input);
+  if (!context.applicationText)
+    throw new Error(
+      "Po usunięciu rozpoznanych danych osobowych i wrażliwych opis jest pusty. Wróć do zgłoszenia i opisz swoje doświadczenie zawodowe.",
+    );
   const prepared = questionRequestSchema.parse({
     revision: input.revision,
     aspectIds: input.aspectIds,
-    answerFacts,
-    ...(cvFacts.length ? { cvFacts } : {}),
+    ...context,
   });
   try {
     return validateQuestions(await request("questions", prepared, signal), prepared.aspectIds);

@@ -85,7 +85,7 @@ async function questions(page: Page, longContent = false) {
 
 async function enter(page: Page) {
   await page.getByLabel("Dlaczego pasujesz do tej roli?").fill(answer);
-  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
   await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
 }
 
@@ -110,7 +110,7 @@ test("entering deepening removes the draft without submitting; refresh starts th
     ),
   ).toEqual([]);
   const outbound = JSON.stringify(requests);
-  expect(outbound).not.toContain(answer);
+  expect(requests[0]).toMatchObject({ applicationText: answer });
   for (const forbidden of [
     "Anna Kowalska",
     "candidate-anna",
@@ -162,13 +162,12 @@ test("decided questions survive edits; one immutable application contains final 
   await aspect(page, 0)
     .getByLabel("Twoja odpowiedź", { exact: true })
     .fill("Samodzielnie wybrałam nowy przepływ po badaniach.");
-  await aspect(page, 1).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
+  await aspect(page, 1).getByRole("button", { name: "Nie chcę odpowiadać", exact: true }).click();
   const original = await aspect(page, 1).textContent();
   await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
   await page
     .getByLabel("Dlaczego pasujesz do tej roli?")
     .fill(`${answer} Prowadziłam testy prototypu.`);
-  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
   await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
   await expect.poll(() => requests.length).toBe(2);
   expect(requests[1].aspectIds).toEqual(["aspect-2"]);
@@ -181,6 +180,8 @@ test("decided questions survive edits; one immutable application contains final 
   await aspect(page, 2)
     .getByLabel("Twoja odpowiedź", { exact: true })
     .fill("Czas obsługi skrócił się o 30%.");
+  await expect(send).toBeDisabled();
+  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
   await expect(send).toBeEnabled();
   await send.dblclick();
   await expect(page.getByText("Aplikacja została wysłana.", { exact: false })).toBeVisible();
@@ -242,7 +243,10 @@ test("submitted snapshots survive later configuration and export/reset/import; f
   await page.reload();
   await enter(page);
   for (let index = 0; index < 3; index++)
-    await aspect(page, index).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
+    await aspect(page, index)
+      .getByRole("button", { name: "Nie chcę odpowiadać", exact: true })
+      .click();
+  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
   await page.getByRole("button", { name: "Wyślij aplikację", exact: true }).click();
   await expect(page.getByText("Aplikacja została wysłana.", { exact: false })).toBeVisible();
   const original = await page.evaluate(
@@ -358,23 +362,76 @@ test("submitted snapshots survive later configuration and export/reset/import; f
   await expect(page.getByText("2. Pogłębienie", { exact: true })).toHaveCount(0);
 });
 
-test("failed replacement preserves the previous question and decisions", async ({ page }) => {
-  await questions(page);
+test("return deletes only unanswered questions; failed fresh generation preserves decisions and retries only missing aspects", async ({
+  page,
+}) => {
+  const requests = await questions(page);
   await seed(page);
   await enter(page);
-  const previous = await aspect(page, 2).textContent();
-  await page.route("**/api/deepening/questions", (route) =>
-    route.fulfill({ status: 503, json: { error: "unavailable" } }),
-  );
-  await aspect(page, 2)
-    .getByRole("button", { name: "Wygeneruj inne pytanie", exact: true })
-    .click();
+  await expect(aspect(page, 0)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Wygeneruj inne pytanie" })).toHaveCount(0);
+  await aspect(page, 0)
+    .getByLabel("Twoja odpowiedź", { exact: true })
+    .fill("Moja decyzja po analizie.");
+  await aspect(page, 1).getByRole("button", { name: "Nie chcę odpowiadać", exact: true }).click();
+  await aspect(page, 2).getByLabel("Twoja odpowiedź", { exact: true }).fill("   ");
+  const preserved = await aspect(page, 0).textContent();
+  await page.getByRole("tab", { name: "1. Zgłoszenie" }).click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveValue(answer);
+  expect(requests).toHaveLength(1);
+  await page.route("**/api/deepening/questions", async (route) => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({ status: 503, json: { error: "unavailable" } });
+  });
+  await page.getByRole("tab", { name: "2. Pogłębienie" }).click();
   await expect(page.getByRole("alert")).toBeVisible();
-  await expect(aspect(page, 2)).toHaveText(previous!);
-  for (let index = 0; index < 3; index++)
-    await aspect(page, index).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
-  await expect(page.getByRole("button", { name: "Wyślij aplikację", exact: true })).toBeEnabled();
+  expect(requests[1].aspectIds).toEqual(["aspect-2"]);
+  await expect(aspect(page, 0)).toHaveText(preserved!);
+  await expect(
+    aspect(page, 1).getByRole("button", { name: "Odpowiem na to pytanie" }),
+  ).toBeVisible();
+  await expect(aspect(page, 2)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Wyślij aplikację", exact: true })).toBeDisabled();
+  await page.unroute("**/api/deepening/questions");
+  await page.route("**/api/deepening/questions", async (route) => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    await route.fulfill({
+      json: { questions: [{ aspectId: "aspect-2", question: "Nowe pytanie po powrocie?" }] },
+    });
+  });
+  await page.getByRole("button", { name: "Spróbuj ponownie", exact: true }).click();
+  await expect(aspect(page, 2)).toContainText("Nowe pytanie po powrocie?");
+  expect(requests[2].aspectIds).toEqual(["aspect-2"]);
+  await expect(aspect(page, 0)).toHaveText(preserved!);
+  await aspect(page, 2).getByRole("button", { name: "Nie chcę odpowiadać", exact: true }).click();
+  await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
+  await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
+  await expect(aspect(page, 2)).toContainText("Nowe pytanie po powrocie?");
+  expect(requests).toHaveLength(3);
+  await expect(page.getByRole("button", { name: "Spróbuj ponownie", exact: true })).toHaveCount(0);
 });
+
+for (const navigation of ["button", "tab"] as const) {
+  test(`unanswered questions are freshly generated after ${navigation} return without application edits`, async ({
+    page,
+  }) => {
+    const requests = await questions(page);
+    await seed(page);
+    await enter(page);
+    await expect(aspect(page, 2)).toContainText("Pytanie 1");
+    if (navigation === "button")
+      await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
+    else await page.getByRole("tab", { name: "1. Zgłoszenie" }).click();
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    expect(requests).toHaveLength(1);
+    await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
+    await expect(aspect(page, 2)).toContainText("Pytanie 2");
+    expect(requests[1].aspectIds).toEqual(["aspect-0", "aspect-1", "aspect-2"]);
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+  });
+}
 
 test("missing companion and malformed generation recover through one failure-skip submission", async ({
   page,
@@ -390,6 +447,7 @@ test("missing companion and malformed generation recover through one failure-ski
   );
   await page.getByRole("button", { name: "Spróbuj ponownie", exact: true }).click();
   await expect(page.getByText("Nieprawidłowe pytanie", { exact: true })).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
   await page.getByRole("button", { name: "Wyślij bez pogłębienia", exact: true }).click();
   await expect(page.getByText("Aplikacja została wysłana.", { exact: false })).toBeVisible();
   const apps = await page.evaluate(
@@ -420,7 +478,6 @@ test("unsupported identifying answer is blocked before any generation request", 
   await page
     .getByLabel("Dlaczego pasujesz do tej roli?")
     .fill("Nazywam się Anna Kowalska. anna@example.test, telefon +48 123 456 789.");
-  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
   await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Wyślij bez pogłębienia", exact: true }),
@@ -429,124 +486,116 @@ test("unsupported identifying answer is blocked before any generation request", 
 });
 
 for (const width of [1280, 320]) {
-  test(`candidate confirms safe facts without rewriting the answer; edits invalidate confirmation at ${width}px`, async ({
+  test(`original form tabs send professional prose and collect open answers at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     const requests = await questions(page);
     await seed(page);
+    const form = page.getByRole("form", { name: "Twoja aplikacja" });
+    const tabs = form.getByRole("tablist", { name: "Etapy aplikacji" });
+    await expect(tabs).toBeVisible();
+    const offerBox = (await page.locator(".application-offer").boundingBox())!;
+    const formBox = (await form.boundingBox())!;
+    if (width > 850) {
+      expect(formBox.x).toBeGreaterThan(offerBox.x + offerBox.width);
+      expect(Math.abs(formBox.y - offerBox.y)).toBeLessThan(1);
+    } else {
+      expect(formBox.y).toBeGreaterThan(offerBox.y + offerBox.height);
+    }
+    await expect(page.locator(".application-offer-compact")).toHaveCount(0);
+    await tabs.getByRole("tab", { name: "2. Pogłębienie" }).click();
+    await expect(tabs.getByRole("tab", { name: "1. Zgłoszenie" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(requests).toHaveLength(0);
+    await expect(form.getByRole("checkbox")).toHaveCount(0);
     const originalAnswer = "Mam doświadczenie w badaniu potrzeb i usprawnianiu procesów.";
     await page.getByLabel("Dlaczego pasujesz do tej roli?").fill(originalAnswer);
-    await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
-    await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
-    const facts = page.getByRole("group", { name: "Informacje do pytań", exact: true });
-    await expect(facts).toBeVisible();
+    await page.getByText("Treść przekazywana do AI", { exact: true }).click();
+    await expect(form.locator("details")).toContainText(originalAnswer);
+    await expect(form.locator("details")).not.toContainText("Anna Kowalska");
+    await tabs.getByRole("tab", { name: "1. Zgłoszenie" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.getByRole("tab", { name: "2. Pogłębienie" })).toBeFocused();
     expect(requests).toHaveLength(0);
-    await expect(facts.getByRole("checkbox", { checked: true })).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    await expect(aspect(page, 0)).toBeVisible();
+    expect(requests[0]).toMatchObject({ applicationText: originalAnswer });
+    await expect(tabs.getByRole("tab", { name: "2. Pogłębienie" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(form.getByRole("checkbox")).toHaveCount(1);
+    for (let index = 0; index < 3; index++) {
+      await aspect(page, index)
+        .getByLabel("Twoja odpowiedź", { exact: true })
+        .fill(
+          `Mój wkład w obszar ${index}: samodzielnie przeprowadziłam analizę i wybrałam rozwiązanie.`,
+        );
+    }
+    const before = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).applications,
+      STORAGE_KEY,
+    );
+    expect(
+      before.filter((app: { candidateId: string }) => app.candidateId === "candidate-anna"),
+    ).toHaveLength(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
     const accessibility = await new AxeBuilder({ page }).include(".application-page").analyze();
     expect(accessibility.violations).toEqual([]);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `artifacts/deepening/preparation-${width}.png`, fullPage: true });
-    const confirm = page.getByRole("button", {
-      name: "Potwierdź i przygotuj pytania",
-      exact: true,
+    await page.screenshot({
+      path: `artifacts/candidate-question-navigation/answers-${width}.png`,
+      fullPage: true,
     });
-    await expect(confirm).toBeDisabled();
-    await facts.getByRole("checkbox", { name: "Badania z użytkownikami", exact: true }).focus();
-    await page.keyboard.press("Space");
-    expect(requests).toHaveLength(0);
-    await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
-    await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
-    await expect(facts).toBeVisible();
-    expect(requests).toHaveLength(0);
-    await confirm.click();
-    await expect(aspect(page, 0)).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Pogłębienie Twojej aplikacji", exact: true }),
-    ).toBeFocused();
-    expect(requests).toHaveLength(1);
-    expect(requests[0]).toMatchObject({ answerFacts: ["user_research"] });
-    expect(JSON.stringify(requests)).not.toContain(originalAnswer);
-    await aspect(page, 0).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
-    const decided = await aspect(page, 0).textContent();
-    await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
-    await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveValue(originalAnswer);
-    await page
-      .getByLabel("Dlaczego pasujesz do tej roli?")
-      .fill("Mam doświadczenie w prowadzeniu zespołów projektowych i analizie potrzeb.");
     await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
-    await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
-    await expect(facts).toBeVisible();
-    await expect(facts.getByRole("checkbox", { checked: true })).toHaveCount(0);
-    expect(requests).toHaveLength(1);
-    await expect(aspect(page, 0)).toHaveText(decided!);
-    await facts.getByRole("checkbox", { name: "Prowadzenie projektów", exact: true }).check();
-    await confirm.click();
-    await expect(facts).toHaveCount(0);
-    await expect.poll(() => requests.length).toBe(2);
-    expect(requests[1]).toMatchObject({
-      aspectIds: ["aspect-1", "aspect-2"],
-      answerFacts: ["project_delivery"],
-    });
-    const saved = await page.evaluate((key) => localStorage.getItem(key)!, STORAGE_KEY);
-    expect(saved).not.toContain("approvedAnswerFacts");
-    expect(saved).not.toContain("project_delivery");
-    if (width === 1280) {
-      for (const index of [1, 2])
-        await aspect(page, index).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).check();
-      await page.getByRole("button", { name: "Wyślij aplikację", exact: true }).click();
-      await expect(page.getByText("Aplikacja została wysłana.", { exact: false })).toBeVisible();
-      const application = await page.evaluate(
-        (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
-        STORAGE_KEY,
-      );
-      expect(application.answer).toBe(
-        "Mam doświadczenie w prowadzeniu zespołów projektowych i analizie potrzeb.",
-      );
-      expect(application.deepening.status).toBe("completed");
-      expect(JSON.stringify(application)).not.toMatch(/approvedAnswerFacts|project_delivery/);
-    } else {
-      await page.reload();
-      await expect(page.getByLabel("Dlaczego pasujesz do tej roli?")).toHaveValue("");
-      await expect(facts).toHaveCount(0);
-    }
+    await page.getByRole("button", { name: "Wyślij aplikację", exact: true }).click();
+    await expect(page.getByText("Aplikacja została wysłana.", { exact: false })).toBeVisible();
+    const application = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)!).applications.at(-1),
+      STORAGE_KEY,
+    );
+    expect(application.answer).toBe(originalAnswer);
+    expect(application.deepening.status).toBe("completed");
+    expect(application.deepening.responses).toHaveLength(3);
+    expect(
+      application.deepening.responses.every(
+        (response: { answer: string; refused: boolean }) =>
+          response.answer.startsWith("Mój wkład") && !response.refused,
+      ),
+    ).toBe(true);
   });
 }
 
-test("editing and restoring the answer after failed generation requires fresh fact confirmation", async ({
+test("editing after failed generation retries using the current professional context", async ({
   page,
 }) => {
-  let calls = 0;
+  const requests: { applicationText: string }[] = [];
   await page.route("**/api/deepening/questions", (route) => {
-    calls++;
+    requests.push(route.request().postDataJSON());
     return route.fulfill({ status: 503, json: { error: "Generation unavailable" } });
   });
   await seed(page);
-  const original = "Mam doświadczenie w badaniu potrzeb i usprawnianiu procesów.";
-  const input = page.getByLabel("Dlaczego pasujesz do tej roli?");
-  await input.fill(original);
-  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
-  await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
-  const facts = page.getByRole("group", { name: "Informacje do pytań", exact: true });
-  await facts.getByRole("checkbox", { name: "Badania z użytkownikami", exact: true }).check();
-  await page.getByRole("button", { name: "Potwierdź i przygotuj pytania", exact: true }).click();
+  await enter(page);
   await expect(page.getByRole("button", { name: "Spróbuj ponownie", exact: true })).toBeVisible();
-  expect(calls).toBe(1);
-  await page.getByRole("button", { name: "Wróć do zgłoszenia", exact: true }).click();
-  await input.fill(`${original} Dodatkowy opis.`);
-  await input.fill(original);
-  await page.getByRole("checkbox", { name: "Zatwierdzam treść i przesłanie aplikacji" }).check();
-  await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
-  await expect(facts).toBeVisible();
-  await expect(facts.getByRole("checkbox", { checked: true })).toHaveCount(0);
-  expect(calls).toBe(1);
+  expect(requests).toHaveLength(1);
+  await page.getByRole("tab", { name: "1. Zgłoszenie" }).click();
+  const updated = "Mam doświadczenie w prowadzeniu zespołów projektowych i analizie potrzeb.";
+  await page.getByLabel("Dlaczego pasujesz do tej roli?").fill(updated);
+  await page.getByRole("tab", { name: "2. Pogłębienie" }).click();
+  await expect.poll(() => requests.length).toBe(2);
+  expect(requests[1].applicationText).toBe(updated);
 });
 
 for (const width of [1280, 390, 320]) {
-  test(`focused application and long deepening questions support keyboard and reflow at ${width}px`, async ({
+  test(`original application and long deepening questions support keyboard and reflow at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -555,16 +604,16 @@ for (const width of [1280, 390, 320]) {
     await expect(page.getByText("Nie podano wynagrodzenia", { exact: true })).toBeVisible();
     await expect(page.locator('[data-company-logo="synthetic-long"]')).toContainText("PP");
     await page.screenshot({
-      path: `artifacts/deepening/candidate-form-${width}.png`,
+      path: `artifacts/candidate-question-navigation/candidate-form-${width}.png`,
       fullPage: true,
     });
     await enter(page);
     await expect(aspect(page, 0)).toContainText("ograniczenia projektu");
-    await aspect(page, 0).getByRole("checkbox", { name: "Nie chcę odpowiadać" }).focus();
+    await aspect(page, 0).getByRole("button", { name: "Nie chcę odpowiadać", exact: true }).focus();
     await page.keyboard.press("Space");
     await expect(
-      aspect(page, 0).getByRole("checkbox", { name: "Nie chcę odpowiadać" }),
-    ).toBeChecked();
+      aspect(page, 0).getByRole("button", { name: "Odpowiem na to pytanie", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -579,6 +628,9 @@ for (const width of [1280, 390, 320]) {
     const result = await new AxeBuilder({ page }).include(".application-page").analyze();
     expect(result.violations).toEqual([]);
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: `artifacts/deepening/candidate-${width}.png`, fullPage: true });
+    await page.screenshot({
+      path: `artifacts/candidate-question-navigation/candidate-${width}.png`,
+      fullPage: true,
+    });
   });
 }

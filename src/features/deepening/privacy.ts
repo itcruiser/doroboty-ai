@@ -1,62 +1,61 @@
-/** Finite vocabulary: no captured substring or user-controlled text can leave this module. */
-export const professionalFacts = {
-  user_research: "Kandydat deklaruje prowadzenie badań z użytkownikami.",
-  automation_delivery: "Kandydat deklaruje wdrożenie automatyzacji.",
-  service_time_reduction: "Kandydat deklaruje skrócenie czasu obsługi.",
-  prototype_testing: "Kandydat deklaruje prowadzenie testów prototypu.",
-  engineering_collaboration: "Kandydat deklaruje współpracę z inżynierami.",
-  product_management: "Kandydat deklaruje zarządzanie produktem.",
-  data_analysis: "Kandydat deklaruje analizowanie danych.",
-  project_delivery: "Kandydat deklaruje prowadzenie projektów.",
-  frontend_development: "Kandydat deklaruje tworzenie interfejsów w React.",
-} as const;
-export type ProfessionalFact = keyof typeof professionalFacts;
+/** Local, conservative filtering for synthetic professional text; not real-data anonymization. */
+const contact =
+  /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}|https?:\/\/\S+|www\.\S+|\+?\d[\d ().-]{5,}\d|\b[A-Z]{2}\s*\d{2}(?:\s*\d){11,30}\b/giu;
+const sensitive =
+  /choruj[ęe]|cukrzyc|depresj|\bHIV\b|\bADHD\b|diagnoz|niepełnosprawnoś|jestem w ciąży|orientacj[aię] seksualn|wyznanie|pogląd[yi] politycz|przynależnoś.{0,20}związk|karalnoś|dane genetycz|dane biometrycz|hasło\s*[:=]|password\s*[:=]|api[_ -]?key\s*[:=]/iu;
+const privateLine =
+  /^\s*(?:adres|telefon|tel\.?|e-?mail|kontakt|pesel|nip|regon|data urodzenia|miejsce urodzenia|obywatelstwo|narodowość|stan cywilny|konto bankowe)\s*[:=]|\bul\.\s+\p{L}|\burodzon[ay]\b|urodzi[łl](?:em|am)/iu;
+const namePair =
+  /(?<![\p{L}\p{N}])[\p{Lu}][\p{Ll}]+(?:[-'][\p{Lu}]?[\p{Ll}]+)?\s+[\p{Lu}][\p{Ll}]+(?:[-'][\p{Lu}]?[\p{Ll}]+)?(?![\p{L}\p{N}])/gu;
+const professionalRoles = new Set([
+  "product manager",
+  "project manager",
+  "software engineer",
+  "ux designer",
+  "product designer",
+  "data analyst",
+  "data scientist",
+]);
+const replacement = "[dane usunięte]";
 
-const clauses: Readonly<Record<string, readonly ProfessionalFact[]>> = {
-  "prowadziłam badania z użytkownikami": ["user_research"],
-  "prowadziłem badania z użytkownikami": ["user_research"],
-  "wdrożyłam automatyzację": ["automation_delivery"],
-  "wdrożyłem automatyzację": ["automation_delivery"],
-  "prowadziłam badania z użytkownikami i wdrożyłam automatyzację": [
-    "user_research",
-    "automation_delivery",
-  ],
-  "prowadziłem badania z użytkownikami i wdrożyłem automatyzację": [
-    "user_research",
-    "automation_delivery",
-  ],
-  "czas obsługi skrócił się o 30%": ["service_time_reduction"],
-  "skróciłam czas obsługi": ["service_time_reduction"],
-  "skróciłem czas obsługi": ["service_time_reduction"],
-  "prowadziłam testy prototypu": ["prototype_testing"],
-  "prowadziłem testy prototypu": ["prototype_testing"],
-  "współpracowałam z inżynierami": ["engineering_collaboration"],
-  "współpracowałem z inżynierami": ["engineering_collaboration"],
-  "zarządzałam produktem": ["product_management"],
-  "zarządzałem produktem": ["product_management"],
-  "analizowałam dane": ["data_analysis"],
-  "analizowałem dane": ["data_analysis"],
-  "prowadziłam projekty": ["project_delivery"],
-  "prowadziłem projekty": ["project_delivery"],
-  "tworzyłam interfejsy w react": ["frontend_development"],
-  "tworzyłem interfejsy w react": ["frontend_development"],
-};
-
-// A standalone affirmative clause is required. Keywords, quotations, uncertainty and
-// negation never count as evidence. This conservative synthetic-only vocabulary can
-// omit valid experience; users retain retry/skip and their original editable answer.
-const uncertainty =
-  /(?<![\p{L}\p{N}_])(?:nie|bez|not|never|no|maybe|perhaps|if|czy|chyba|gdyby|jeśli|jesli|może|moze|chcę|chce|planuję|planuje|zamierzam)(?![\p{L}\p{N}_])|[?"„”«»]/iu;
-export function prepareProfessionalFacts(text: string): ProfessionalFact[] {
-  if (!text.trim() || text.length > 12000 || uncertainty.test(text)) return [];
-  const parts = text
+export function prepareProfessionalText(text: string, candidateName = ""): string {
+  if (text.length > 12000) return "";
+  const names = candidateName.split(/\s+/u).filter((part) => part.length >= 3);
+  return text
     .normalize("NFC")
-    .toLocaleLowerCase("pl")
-    .split(/[.!;\n]+/u)
-    .map((part) => part.trim().replace(/\s+/gu, " "))
-    .filter(Boolean);
-  // Discard the whole input if any surrounding context is unrecognized: it might
-  // negate, quote or qualify an otherwise recognizable affirmative sentence.
-  if (parts.some((part) => !Object.hasOwn(clauses, part))) return [];
-  return [...new Set(parts.flatMap((part) => (Object.hasOwn(clauses, part) ? clauses[part] : [])))];
+    .split(/\n/u)
+    .flatMap((line) => {
+      if (privateLine.test(line) || sensitive.test(line)) return [];
+      let prepared = line.replace(contact, replacement);
+      for (const name of names) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+        prepared = prepared.replace(
+          new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "giu"),
+          replacement,
+        );
+      }
+      prepared = prepared
+        .replace(namePair, (pair) =>
+          professionalRoles.has(pair.toLowerCase()) ? pair : replacement,
+        )
+        .replace(/[ \t]+/gu, " ")
+        .trim();
+      const content = prepared
+        .replace(/\[[^\]]*\]/gu, "")
+        .replace(/(?<![\p{L}])(?:nazywam|się|telefon|tel|email|kontakt)(?![\p{L}])/giu, "")
+        .replace(/[^\p{L}]/gu, "");
+      return content.length >= 3 ? [prepared] : [];
+    })
+    .join("\n")
+    .trim();
+}
+
+/** Independently checked at the HTTP boundary; only recognized patterns are covered. */
+export function isPreparedProfessionalText(text: string): boolean {
+  return !!text.trim() && prepareProfessionalText(text) === text;
+}
+export function prepareCandidateContext(input: { answer: string; cv: string; name: string }) {
+  const applicationText = prepareProfessionalText(input.answer, input.name);
+  const cvText = prepareProfessionalText(input.cv, input.name);
+  return { applicationText, ...(cvText ? { cvText } : {}) };
 }

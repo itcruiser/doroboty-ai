@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AnswerPreparationError, generateQuestions } from "./client";
-import type { ProfessionalFact } from "./privacy";
+import { generateQuestions } from "./client";
 import { captureDeepeningRevision, type DeepeningRevision, type DeepeningSnapshot } from "./schema";
 import type { JobWithCompany } from "../jobs/types";
 
@@ -9,9 +8,13 @@ type Session = {
   revision: DeepeningRevision;
   identity: { name: string; cv: string };
   responses: Decision[];
-  generatedFrom: string;
-  preparation?: { answer: string; facts: ProfessionalFact[]; confirmed: boolean };
 };
+
+function missingAspectIds(session: Session) {
+  return session.revision.aspects
+    .filter((aspect) => !session.responses.some((response) => response.aspectId === aspect.id))
+    .map((aspect) => aspect.id);
+}
 
 /** Unfinished deepening belongs only to this mounted form, never browser storage. */
 export function useCandidateDeepening() {
@@ -20,7 +23,6 @@ export function useCandidateDeepening() {
   const [active, setActive] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [requiresPreparation, setRequiresPreparation] = useState(false);
   const request = useRef<{ controller: AbortController; token: number } | null>(null);
   const sequence = useRef(0);
   useEffect(
@@ -42,7 +44,6 @@ export function useCandidateDeepening() {
     request.current = { controller, token };
     setPending(true);
     setError("");
-    setRequiresPreparation(false);
     try {
       const result = await generateQuestions(
         {
@@ -50,25 +51,22 @@ export function useCandidateDeepening() {
           cv: captured.identity.cv,
           answer,
           aspectIds,
-          ...(captured.preparation?.confirmed && captured.preparation.answer === answer
-            ? { approvedAnswerFacts: captured.preparation.facts }
-            : {}),
+          name: captured.identity.name,
         },
         controller.signal,
       );
       if (token !== sequence.current || controller.signal.aborted) return;
-      // The client validates the complete replacement before any question changes.
+      // Validate all missing questions before merging them with preserved decisions.
       const previous = current.current!;
       const responses = previous.revision.aspects.map((aspect) => {
         const replacement = result.questions.find((question) => question.aspectId === aspect.id);
         const existing = previous.responses.find((response) => response.aspectId === aspect.id);
         return replacement ? { ...replacement, answer: "", refused: false } : existing!;
       });
-      update({ ...previous, responses, generatedFrom: answer });
+      update({ ...previous, responses });
     } catch (cause) {
       if (token === sequence.current && !controller.signal.aborted) {
         setError(cause instanceof Error ? cause.message : "Nie udało się wygenerować pytań.");
-        setRequiresPreparation(cause instanceof AnswerPreparationError);
       }
     } finally {
       if (token === sequence.current) {
@@ -100,28 +98,14 @@ export function useCandidateDeepening() {
         revision,
         identity: structuredClone(identity),
         responses: [],
-        generatedFrom: "",
       });
     }
-    if (current.current!.preparation && current.current!.preparation.answer !== answer)
-      update({ ...current.current!, preparation: undefined });
     setActive(true);
     const captured = current.current!;
-    if (!captured.responses.length || captured.generatedFrom !== answer) {
-      const undecided = captured.revision.aspects
-        .filter((aspect) => {
-          const response = captured.responses.find((item) => item.aspectId === aspect.id);
-          return !response || (!response.answer.trim() && !response.refused);
-        })
-        .map((aspect) => aspect.id);
-      if (undecided.length) void generate(answer, undecided);
-      else {
-        update({ ...captured, generatedFrom: answer });
-        setError("");
-        setRequiresPreparation(false);
-      }
-    }
+    const missing = missingAspectIds(captured);
+    if (missing.length) void generate(answer, missing);
   }
+
   function decide(aspectId: string, change: Partial<Pick<Decision, "answer" | "refused">>) {
     if (!current.current || request.current) return;
     update({
@@ -131,19 +115,11 @@ export function useCandidateDeepening() {
       ),
     });
   }
-  function regenerate(answer: string, aspectId?: string) {
+  function retryMissing(answer: string) {
     const captured = current.current;
-    if (!captured) return;
-    const ids = captured.revision.aspects
-      .filter((aspect) => {
-        const response = captured.responses.find((item) => item.aspectId === aspect.id);
-        return (
-          (!aspectId || aspect.id === aspectId) &&
-          (!response || (!response.answer.trim() && !response.refused))
-        );
-      })
-      .map((aspect) => aspect.id);
-    void generate(answer, ids);
+    if (!captured || !error) return;
+    const missing = missingAspectIds(captured);
+    void generate(answer, missing);
   }
   const complete =
     !!session?.responses.length &&
@@ -166,48 +142,23 @@ export function useCandidateDeepening() {
     active,
     pending,
     error,
-    requiresPreparation,
-    selectedFacts: session?.preparation?.facts ?? [],
     complete,
     enter,
     decide,
     snapshot,
-    invalidatePreparation: () => {
-      if (current.current && !request.current)
-        update({ ...current.current, preparation: undefined });
-    },
-    selectFact: (answer: string, fact: ProfessionalFact, selected: boolean) => {
-      const captured = current.current;
-      if (!captured || request.current) return;
-      const facts = captured.preparation?.answer === answer ? captured.preparation.facts : [];
-      update({
-        ...captured,
-        preparation: {
-          answer,
-          facts: selected ? [...new Set([...facts, fact])] : facts.filter((item) => item !== fact),
-          confirmed: false,
-        },
-      });
-    },
-    confirmFacts: (answer: string) => {
-      const captured = current.current;
-      if (
-        !captured ||
-        request.current ||
-        captured.preparation?.answer !== answer ||
-        !captured.preparation.facts.length
-      )
-        return;
-      update({ ...captured, preparation: { ...captured.preparation, confirmed: true } });
-      regenerate(answer);
-    },
     back: () => {
       if (!request.current) {
+        if (current.current)
+          update({
+            ...current.current,
+            responses: current.current.responses.filter(
+              (response) => response.refused || !!response.answer.trim(),
+            ),
+          });
         setActive(false);
         setError("");
-        setRequiresPreparation(false);
       }
     },
-    regenerate,
+    retryMissing,
   };
 }

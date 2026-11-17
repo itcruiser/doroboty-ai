@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { aspectSchema, revisionSchema } from "./schema.ts";
-import { professionalFacts } from "./privacy.ts";
+import { isPreparedProfessionalText } from "./privacy.ts";
 
 export const MAX_REQUEST_BYTES = 100_000;
 export const MAX_RESPONSE_BYTES = 64_000;
@@ -28,17 +28,9 @@ export const aspectSuggestionsSchema = z
       .max(3),
   })
   .strict();
-const factSchema = z.enum(
-  Object.keys(professionalFacts) as [
-    keyof typeof professionalFacts,
-    ...Array<keyof typeof professionalFacts>,
-  ],
-);
-const factsSchema = z
-  .array(factSchema)
-  .min(1)
-  .max(9)
-  .refine((facts) => new Set(facts).size === facts.length);
+const preparedTextSchema = z.string().trim().min(1).max(12000).refine(isPreparedProfessionalText, {
+  message: "Remove recognized personal or sensitive data before generation",
+});
 const strictRevisionSchema = revisionSchema
   .safeExtend({ aspects: z.array(aspectSchema.strict()).min(1).max(3) })
   .strict()
@@ -49,8 +41,8 @@ export const questionRequestSchema = z
   .object({
     revision: strictRevisionSchema,
     aspectIds: z.array(z.string().min(1).max(100)).min(1).max(3),
-    answerFacts: factsSchema,
-    cvFacts: factsSchema.optional(),
+    applicationText: preparedTextSchema,
+    cvText: preparedTextSchema.optional(),
   })
   .strict()
   .superRefine((input, ctx) => {

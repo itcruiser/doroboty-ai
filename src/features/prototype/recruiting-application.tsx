@@ -59,8 +59,8 @@ export function RecruitingApplication({ application }: { application: Applicatio
         }
       >
         {availableStages.length > 0 ? (
-          <>
-            <h3>
+          <section className="record-section" aria-labelledby="recruiting-note-heading">
+            <h3 id="recruiting-note-heading">
               <label htmlFor="recruiting-note">Notatka rekrutacyjna</label>
             </h3>
             <p className="record-caption" id="recruiting-note-hint">
@@ -76,7 +76,7 @@ export function RecruitingApplication({ application }: { application: Applicatio
               onChange={(event) => setNote(event.target.value)}
               placeholder="Co warto sprawdzić w rozmowie?"
             />
-          </>
+          </section>
         ) : null}
       </ApplicationRecord>
       <p role="status" className="sr-only">

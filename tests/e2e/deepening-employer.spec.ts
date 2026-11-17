@@ -11,9 +11,11 @@ async function newPublication(page: Page) {
   await page
     .getByLabel("Brief — kogo szukasz i do jakiego zadania?")
     .fill("PRYWATNY brief o badaniach i automatyzacji obsługi klientów.");
+  await expect(page.getByRole("button", { name: "Przygotuj opis z AI" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Dalej: treść oferty", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Treść oferty", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Przygotuj opis z AI", exact: true }).click();
   await page.getByRole("button", { name: "Użyj propozycji", exact: true }).click();
-  await page.getByRole("button", { name: "Dalej: treść oferty", exact: true }).click();
   await page
     .getByLabel("Krótkie podsumowanie")
     .fill("Badania potrzeb i automatyzacja obsługi klientów.");

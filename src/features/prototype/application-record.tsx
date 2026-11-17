@@ -82,6 +82,7 @@ export function ApplicationRecord({
               content: (
                 <>
                   <h3>Przesłana aplikacja</h3>
+                  <p className="record-caption">Dlaczego pasujesz do tej roli?</p>
                   <p>{application.answer}</p>
                 </>
               ),
@@ -105,14 +106,23 @@ export function ApplicationRecord({
           footer={footer}
         >
           {application.deepening && (
-            <section aria-labelledby="submitted-deepening-heading" className="submitted-deepening">
+            <section
+              aria-labelledby="submitted-deepening-heading"
+              className="record-section submitted-deepening"
+            >
               <h3 id="submitted-deepening-heading">Pogłębienie</h3>
               {application.deepening.status === "skipped" ? (
                 <p>Wysłano bez pogłębienia: nie udało się wygenerować pytań.</p>
               ) : (
                 application.deepening.responses.map((response, index) => (
                   <section key={response.aspectId} className="submitted-deepening-response">
+                    <p className="record-caption submitted-aspect-order">
+                      Aspekt {index + 1} z {application.deepening!.revision.aspects.length}
+                    </p>
                     <h4>{application.deepening!.revision.aspects[index].title}</h4>
+                    <p className="record-caption submitted-aspect-explanation">
+                      {application.deepening!.revision.aspects[index].explanation}
+                    </p>
                     <p className="application-help">Pytanie przygotowane przez AI</p>
                     <p>{response.question}</p>
                     <p className="application-help">Odpowiedź kandydata</p>

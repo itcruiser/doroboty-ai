@@ -94,8 +94,9 @@ const revision = {
 const prepared = {
   revision,
   aspectIds: ["research", "automation"],
-  answerFacts: ["user_research"],
-  cvFacts: ["automation_delivery"],
+  applicationText:
+    "Samodzielnie przeprowadziłam 12 rozmów z użytkownikami i wybrałam nowy przepływ.",
+  cvText: "Wdrażałam automatyzację obsługi klienta.",
 };
 const generated = {
   questions: [
@@ -111,7 +112,7 @@ function questionPost(url: string, body: unknown) {
   });
 }
 
-test("HTTP questions reconstructs professional facts and only the requested approved aspects", async () => {
+test("HTTP questions use application, professional CV and public job context for requested aspects", async () => {
   let sent = "";
   const url = await start({
     apiKey: "private-key",
@@ -137,8 +138,9 @@ test("HTTP questions reconstructs professional facts and only the requested appr
         explanation: "Efekt",
       },
     ],
-    answerFacts: ["Kandydat deklaruje prowadzenie badań z użytkownikami."],
-    cvFacts: ["Kandydat deklaruje wdrożenie automatyzacji."],
+    job: publicJob,
+    applicationText: prepared.applicationText,
+    cvText: prepared.cvText,
   });
   expect(payload.instructions).toContain("OPCJONALNEGO");
   expect(sent).not.toMatch(/job-1|jobRevision|private-key|cv"|profile|excerpt/);
@@ -148,8 +150,11 @@ for (const body of [
   { ...prepared, answer: "Anna Prywatna" },
   { ...prepared, cv: "private CV" },
   { ...prepared, profile: { name: "Anna" } },
-  { ...prepared, answerFacts: ["Prowadziłam badania z użytkownikami."] },
-  { ...prepared, answerFacts: [] },
+  { ...prepared, applicationText: "anna@example.test" },
+  { ...prepared, applicationText: "Choruję na cukrzycę." },
+  { ...prepared, cvText: "Telefon: 500600700" },
+  { ...prepared, applicationText: "Anna Kowalska" },
+  { ...prepared, applicationText: "" },
   { ...prepared, aspectIds: ["unknown"] },
   { ...prepared, aspectIds: ["research", "research"] },
   {

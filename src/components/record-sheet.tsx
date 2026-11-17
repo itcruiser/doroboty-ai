@@ -40,7 +40,7 @@ export function RecordSheet({
           </Tabs.Panel>
         ))}
       </Tabs.Root>
-      {children && <div className="record-section">{children}</div>}
+      {children}
       {footer && <footer className="record-footer">{footer}</footer>}
     </section>
   );

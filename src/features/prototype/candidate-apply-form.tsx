@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
+import { Tabs } from "@base-ui/react/tabs";
 import { CheckCircle2 } from "lucide-react";
 import { ConfettiBurst, type ConfettiOrigin } from "@/components/confetti-burst";
 import { BackLink } from "@/components/back-link";
@@ -9,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ApplicationOfferPreview } from "@/features/jobs/application-offer-preview";
 import type { JobWithCompany } from "@/features/jobs/types";
 import { useCandidateDeepening } from "@/features/deepening/use-candidate-deepening";
+import { prepareCandidateContext } from "@/features/deepening/privacy";
 import { CandidateQuestions } from "@/features/deepening/candidate-questions";
 import { usePrototype } from "./store";
 import { currentPerson, MIN_APPLICATION_ANSWER_LENGTH } from "./model";
@@ -48,15 +50,22 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
     const timeout = window.setTimeout(() => navigate("/app/aplikacje?wyslano=1"), delay);
     return () => window.clearTimeout(timeout);
   }, [submitted, navigate]);
+  const tabNavigation = useRef(false);
+  const context = prepareCandidateContext({ answer, cv: identity.cv, name: identity.name });
   const entered = !!deepening.session;
   useLayoutEffect(() => {
     if (!entered) return;
-    if (deepening.active) document.getElementById("application-form-title")?.focus();
+    if (tabNavigation.current) {
+      tabNavigation.current = false;
+      return;
+    }
+    if (deepening.active) document.getElementById("application-deepening-title")?.focus();
     else answerInput.current?.focus();
   }, [deepening.active, entered]);
   const answerLength = answer.trim().length;
   const answerInvalid = attempted && answerLength < MIN_APPLICATION_ANSWER_LENGTH;
-  const consentInvalid = attempted && !consent;
+  const showConsent = !enabled || deepening.active;
+  const consentInvalid = attempted && showConsent && !consent;
   const existing = state.applications.find(
     (x) => x.jobId === job.id && x.candidateId === person.id,
   );
@@ -69,34 +78,38 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
         </Link>
       </section>
     );
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    if (submittedOnce.current) return;
+  function validateApplication() {
     setAttempted(true);
     if (answerLength < MIN_APPLICATION_ANSWER_LENGTH) {
+      if (deepening.active) deepening.back();
       answerInput.current?.focus();
-      return;
+      return false;
     }
-    if (!consent) {
+    if (showConsent && !consent) {
       document.getElementById("application-consent")?.focus();
-      return;
+      return false;
     }
-    if (enabled && !deepening.active) {
-      setMessage("");
-      deepening.enter(job, { name: person.name, cv: person.cv }, answer, () =>
-        enterDeepening(job.id),
-      );
-      return;
-    }
-    send();
+    return true;
+  }
+  function goToQuestions() {
+    if (submittedOnce.current || deepening.pending || !validateApplication()) return;
+    setMessage("");
+    setAttempted(false);
+    setConsent(false);
+    deepening.enter(job, { name: person.name, cv: person.cv }, answer, () =>
+      enterDeepening(job.id),
+    );
+  }
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (submittedOnce.current || !validateApplication()) return;
+    tabNavigation.current = false;
+    if (enabled && !deepening.active) goToQuestions();
+    else send();
   }
   function send(skip = false) {
     if (submittedOnce.current || deepening.pending) return;
-    setAttempted(true);
-    if (answerLength < MIN_APPLICATION_ANSWER_LENGTH || !consent) {
-      deepening.back();
-      return;
-    }
+    if (!validateApplication()) return;
     const snapshot = enabled ? deepening.snapshot(skip) : undefined;
     if (enabled && !snapshot) return;
     submittedOnce.current = true;
@@ -121,6 +134,77 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
       }
     } else submittedOnce.current = false;
   }
+  const applicationFields = (
+    <>
+      <header className="application-form-intro">
+        <h2 id="application-form-title">Twoja aplikacja</h2>
+        <p>
+          Aplikujesz jako <strong>{identity.name}</strong>.
+        </p>
+      </header>
+      <section className="application-form-section" aria-labelledby="application-cv-title">
+        <h3 id="application-cv-title">Twoje CV</h3>
+        <p className="application-help">Do aplikacji dołączymy CV z Twojego profilu.</p>
+        <CvAttachment
+          candidateId={person.id}
+          fallbackText={identity.cv}
+          layout="row"
+          contextLabel="CV z Twojego profilu"
+        />
+      </section>
+      <section
+        className="application-form-section application-answer"
+        aria-label="Odpowiedź do aplikacji"
+      >
+        <label className="field">
+          <span>Dlaczego pasujesz do tej roli?</span>
+          <Textarea
+            disabled={submitted}
+            ref={answerInput}
+            required
+            minLength={MIN_APPLICATION_ANSWER_LENGTH}
+            maxLength={12000}
+            aria-invalid={answerInvalid || undefined}
+            aria-describedby="application-answer-help"
+            value={answer}
+            onChange={(e) => {
+              setAnswer(e.target.value);
+              setConsent(false);
+            }}
+          />
+        </label>
+        <p
+          id="application-answer-help"
+          role={answerInvalid ? "alert" : undefined}
+          className={answerInvalid ? "error-message" : "text-sm text-muted-foreground"}
+        >
+          {answerInvalid
+            ? `Odpowiedź jest za krótka. Wpisz co najmniej ${MIN_APPLICATION_ANSWER_LENGTH} znaków (obecnie: ${answerLength}).`
+            : `Minimum ${MIN_APPLICATION_ANSWER_LENGTH} znaków. Obecnie: ${answerLength}.`}
+        </p>
+        {enabled && (
+          <div className="application-ai-context">
+            <p className="application-help">
+              AI przygotuje dodatkowe pytania na podstawie Twojej aplikacji, CV i aspektów oferty.
+              Rozpoznane dane osobowe i wrażliwe pomijamy. Sprawdź podgląd i używaj wyłącznie danych
+              syntetycznych.
+            </p>
+            <details>
+              <summary>Treść przekazywana do AI</summary>
+              <h3>Opis aplikacji</h3>
+              <p>{context.applicationText || "Brak opisu zawodowego do przekazania."}</p>
+              {context.cvText && (
+                <>
+                  <h3>Informacje zawodowe z CV</h3>
+                  <p>{context.cvText}</p>
+                </>
+              )}
+            </details>
+          </div>
+        )}
+      </section>
+    </>
+  );
   return (
     <section className="pp-container application-page">
       <BackLink to={`/oferty/${job.slug}`}>Wróć do oferty</BackLink>
@@ -128,87 +212,66 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
         <h1>Aplikuj na ofertę</h1>
         <p>Sprawdź ofertę i opowiedz, dlaczego pasujesz do tej roli.</p>
       </header>
-      <div className="application-layout application-focused-layout">
-        <ApplicationOfferPreview job={offer} compact />
-        {enabled && (
-          <div className="application-step-context">
-            <ol aria-label="Etapy aplikacji" className="application-steps">
-              <li aria-current={!deepening.active ? "step" : undefined}>1. Zgłoszenie</li>
-              <li aria-current={deepening.active ? "step" : undefined}>2. Pogłębienie</li>
-            </ol>
-            <p className="application-help">
-              Przejście do pogłębienia usuwa zapisany szkic. Wyjście lub odświeżenie strony usunie
-              całą niewysłaną aplikację. Wysyłasz ją dopiero na końcu.
-            </p>
-          </div>
-        )}
+      <div className="application-layout">
+        <ApplicationOfferPreview job={offer} />
         <form
           noValidate
           onSubmit={submit}
           className="record-sheet application-form"
-          aria-labelledby="application-form-title"
+          aria-label="Twoja aplikacja"
         >
           {!deepening.active && deepening.error && (
             <p role="alert" className="error-message">
               {deepening.error}
             </p>
           )}
-          {deepening.active ? (
-            <CandidateQuestions deepening={deepening} answer={answer} locked={submitted} />
-          ) : (
-            <>
-              <header className="application-form-intro">
-                <h2 id="application-form-title">Twoja aplikacja</h2>
-                <p>
-                  Aplikujesz jako <strong>{identity.name}</strong>.
-                </p>
-              </header>
-              <section className="application-form-section" aria-labelledby="application-cv-title">
-                <h3 id="application-cv-title">Twoje CV</h3>
-                <p className="application-help">Do aplikacji dołączymy CV z Twojego profilu.</p>
-                <CvAttachment
-                  candidateId={person.id}
-                  fallbackText={identity.cv}
-                  layout="row"
-                  contextLabel="CV z Twojego profilu"
-                />
-              </section>
-              <section
-                className="application-form-section application-answer"
-                aria-label="Odpowiedź do aplikacji"
+          {enabled ? (
+            <Tabs.Root
+              value={deepening.active ? "deepening" : "application"}
+              onValueChange={(value) => {
+                if (deepening.pending || submitted) return;
+                tabNavigation.current = true;
+                if (value === "application") deepening.back();
+                else goToQuestions();
+              }}
+            >
+              <Tabs.List
+                className="record-tabs application-tabs"
+                aria-label="Etapy aplikacji"
+                activateOnFocus={false}
               >
-                <label className="field">
-                  <span>Dlaczego pasujesz do tej roli?</span>
-                  <Textarea
-                    disabled={submitted}
-                    ref={answerInput}
-                    required
-                    minLength={MIN_APPLICATION_ANSWER_LENGTH}
-                    maxLength={12000}
-                    aria-invalid={answerInvalid || undefined}
-                    aria-describedby="application-answer-help"
-                    value={answer}
-                    onChange={(e) => {
-                      deepening.invalidatePreparation();
-                      setAnswer(e.target.value);
-                      setConsent(false);
-                    }}
-                  />
-                </label>
-                <p
-                  id="application-answer-help"
-                  role={answerInvalid ? "alert" : undefined}
-                  className={answerInvalid ? "error-message" : "text-sm text-muted-foreground"}
+                <Tabs.Tab
+                  value="application"
+                  disabled={deepening.pending || submitted}
+                  className="record-tab"
+                  render={<Button type="button" variant="ghost" />}
                 >
-                  {answerInvalid
-                    ? `Odpowiedź jest za krótka. Wpisz co najmniej ${MIN_APPLICATION_ANSWER_LENGTH} znaków (obecnie: ${answerLength}).`
-                    : `Minimum ${MIN_APPLICATION_ANSWER_LENGTH} znaków. Obecnie: ${answerLength}.`}
-                </p>
-              </section>
-            </>
+                  1. Zgłoszenie
+                </Tabs.Tab>
+                <Tabs.Tab
+                  value="deepening"
+                  disabled={deepening.pending || submitted}
+                  className="record-tab"
+                  render={<Button type="button" variant="ghost" />}
+                >
+                  2. Pogłębienie
+                </Tabs.Tab>
+              </Tabs.List>
+              <p className="application-help application-session-warning">
+                Przejście do pogłębienia usuwa zapisany szkic. Wyjście lub odświeżenie strony usunie
+                całą niewysłaną aplikację. Powrót do zgłoszenia usuwa pytania bez odpowiedzi.
+                Wysyłasz ją dopiero na końcu.
+              </p>
+              <Tabs.Panel value="application">{applicationFields}</Tabs.Panel>
+              <Tabs.Panel value="deepening">
+                <CandidateQuestions deepening={deepening} answer={answer} locked={submitted} />
+              </Tabs.Panel>
+            </Tabs.Root>
+          ) : (
+            applicationFields
           )}
           <div className="application-form-section application-submit">
-            {!deepening.active && (
+            {showConsent && (
               <label className="application-consent">
                 <Checkbox
                   id="application-consent"
@@ -220,7 +283,9 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
                   aria-label="Zatwierdzam treść i przesłanie aplikacji"
                 />
                 <span>
-                  Zatwierdzam treść aplikacji i przesłanie profilu oraz przykładowego CV pracodawcy.
+                  Zatwierdzam treść aplikacji
+                  {enabled ? " wraz z odpowiedziami na dodatkowe pytania" : ""} i przesłanie profilu
+                  oraz przykładowego CV pracodawcy.
                 </span>
               </label>
             )}
@@ -267,7 +332,7 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
               {deepening.active && !deepening.session?.responses.length && !!deepening.error && (
                 <Button
                   type="button"
-                  variant={deepening.requiresPreparation ? "outline" : "default"}
+                  variant="outline"
                   disabled={submitted || deepening.pending}
                   onClick={() => send(true)}
                 >
@@ -279,7 +344,10 @@ export function CandidateApplyForm({ job }: { job: JobWithCompany }) {
                   type="button"
                   variant="outline"
                   disabled={submitted || deepening.pending}
-                  onClick={deepening.back}
+                  onClick={() => {
+                    tabNavigation.current = false;
+                    deepening.back();
+                  }}
                 >
                   Wróć do zgłoszenia
                 </Button>

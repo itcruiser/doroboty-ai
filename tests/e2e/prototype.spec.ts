@@ -102,9 +102,11 @@ test("published job → saved offer/draft → submitted application → employer
   await page
     .getByLabel("Brief — kogo szukasz i do jakiego zadania?")
     .fill("Szukamy osoby do badań z klientami, prototypowania i wdrażania automatyzacji obsługi.");
+  await expect(page.getByRole("button", { name: "Przygotuj opis z AI" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Dalej: treść oferty", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Treść oferty", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Przygotuj opis z AI" }).click();
   await page.getByRole("button", { name: "Użyj propozycji" }).click();
-  await page.getByRole("button", { name: "Dalej: treść oferty", exact: true }).click();
   await page.getByRole("button", { name: "Dalej: warunki", exact: true }).click();
   await page.getByRole("button", { name: "Dalej: pogłębienie", exact: true }).click();
   await page.getByRole("button", { name: "Dalej: zatwierdzenie", exact: true }).click();
