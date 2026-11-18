@@ -19,6 +19,7 @@ verifyPacket(root);
 const entries = [
   "src",
   "server",
+  "netlify/functions",
   "public",
   "tests",
   "package.json",
@@ -49,6 +50,7 @@ const entries = [
   "scripts/verify-participant.mjs",
   "scripts/release.mjs",
   "vercel.json",
+  "netlify.toml",
   "docs/PUBLICATION.md",
   "docs/architecture.md",
   "docs/design-system",

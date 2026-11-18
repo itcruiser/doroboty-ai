@@ -21,7 +21,7 @@ A participant can start with Node.js 24 and npm, extend the prototype and test a
 
 ## Boundaries
 
-A shareable static build contains no secrets and provides no confidentiality between roles. Hosting is optional and provider-independent. An optional loopback companion performs structured OpenAI generation with a server-only key; the browser retains scenario ownership. Ordinary static flows remain usable without it, with manual employer entry and candidate failure-skip recovery. Local filtering removes recognized private patterns but does not establish privacy for real data; prepared professional prose is sent to AI.
+A shareable static build contains no secrets and provides no confidentiality between roles. Hosting is optional and provider-independent. An optional loopback companion or Netlify Function performs structured OpenAI generation with a server-only key; the browser retains scenario ownership. The public Netlify teaching demo limits requests per IP but has no real user authentication or guaranteed global spending cap. Ordinary static flows remain usable without it, with manual employer entry and candidate failure-skip recovery. Local filtering removes recognized private patterns but does not establish privacy for real data; prepared professional prose is sent to AI.
 
 ## Learning
 

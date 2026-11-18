@@ -15,6 +15,7 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": [
+    "netlify/functions",
     "server",
     "src",
     "vite.config.ts",

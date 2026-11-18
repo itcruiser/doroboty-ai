@@ -24,6 +24,11 @@ BRIEF.md describes the current scope. Historical milestones remain in Git histor
 - [x] Pass the final ./scripts/verify gate: 79 units, 52 Chromium journeys, source-kit checks, lint/types/format, baseline packet and static build.
 - [x] Complete separate Standards/Spec review, fix and independently review all findings; evidence in docs/tasks/deepening-implementation.md and docs/tasks/deepening-review.md.
 
+## Completed Netlify generation
+
+- [x] Deploy shared aspect/question generation as a Netlify Function with server-only runtime secrets, bounded same-origin requests and a platform IP limit.
+- [x] Pass 115 unit tests and 69 Chromium journeys; verify real synthetic aspect/question generation, human approval, submitted snapshots and deployed rate limiting. Evidence: docs/tasks/netlify-deepening-generation.md.
+
 ## Deliberate limitations
 
 - Human research, course release approval and publishing a participant URL remain separate activities; passing code checks does not establish these outcomes.
